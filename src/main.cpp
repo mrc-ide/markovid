@@ -9,25 +9,8 @@
 using namespace std;
 
 //------------------------------------------------
-// main MCMC function
-Rcpp::List main_cpp(Rcpp::List args) {
-  
-  // get flags for R vs. C++ likelihood and prior functions
-  Rcpp::List args_params = args["args_params"];
-  
-  // extract function args
-  Rcpp::List args_functions = args["args_functions"];
-  
-  // run MCMC
-  Rcpp::List ret = run_mcmc(args);
-  
-  // return list
-  return ret;
-}
-
-//------------------------------------------------
 // run MCMC
-Rcpp::List run_mcmc(Rcpp::List args) {
+Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   
   // start timer
   chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
@@ -49,18 +32,15 @@ Rcpp::List run_mcmc(Rcpp::List args) {
   int rungs = s.rungs;
   
   // initialise vector of particles
-  vector<double> beta_raised_vec(rungs);
+  vector<double> beta_vec(rungs);
   vector<Particle> particle_vec(rungs);
   for (int r = 0; r < rungs; ++r) {
     
     // calculate thermodynamic power of this rung
-    beta_raised_vec[r] = (rungs == 1) ? 1 : pow(1.0 - r/double(rungs-1), s.GTI_pow);
+    beta_vec[r] = (rungs == 1) ? 1 : 1.0 - r / double(rungs-1);
     
     // initialise particle
-    particle_vec[r].init(s, beta_raised_vec[r]);
-    
-    // initialise particle initial likelihood and prior values
-    particle_vec[r].init_like();
+    particle_vec[r].init(s, beta_vec[r]);
   }
   
   // objects for storing loglikelihood and theta values over iterations
@@ -108,9 +88,7 @@ Rcpp::List run_mcmc(Rcpp::List args) {
     }
     
     // perform Metropolis coupling
-    if (s.coupling_on) {
-      coupling(particle_vec, mc_accept_burnin);
-    }
+    coupling(particle_vec, mc_accept_burnin);
     
     // update progress bars
     if (!s.silent) {
@@ -160,9 +138,7 @@ Rcpp::List run_mcmc(Rcpp::List args) {
     }
     
     // perform Metropolis coupling
-    if (s.coupling_on) {
-      coupling(particle_vec, mc_accept_sampling);
-    }
+    coupling(particle_vec, mc_accept_sampling);
     
     // update progress bars
     if (!s.silent) {
@@ -199,7 +175,7 @@ Rcpp::List run_mcmc(Rcpp::List args) {
                                       Rcpp::Named("loglike_sampling") = loglike_sampling,
                                       Rcpp::Named("logprior_sampling") = logprior_sampling,
                                       Rcpp::Named("theta_sampling") = theta_sampling,
-                                      Rcpp::Named("beta_raised_vec") = beta_raised_vec,
+                                      Rcpp::Named("beta_vec") = beta_vec,
                                       Rcpp::Named("mc_accept_burnin") = mc_accept_burnin,
                                       Rcpp::Named("mc_accept_sampling") = mc_accept_sampling);
   return ret;
@@ -224,11 +200,11 @@ void coupling(vector<Particle> &particle_vec, vector<int> &mc_accept) {
     double loglike1 = particle_vec[rung1].loglike;
     double loglike2 = particle_vec[rung2].loglike;
     
-    double beta_raised1 = particle_vec[rung1].beta_raised;
-    double beta_raised2 = particle_vec[rung2].beta_raised;
+    double beta1 = particle_vec[rung1].beta;
+    double beta2 = particle_vec[rung2].beta;
     
     // calculate acceptance ratio (still in log space)
-    double acceptance = (loglike2*beta_raised1 + loglike1*beta_raised2) - (loglike1*beta_raised1 + loglike2*beta_raised2);
+    double acceptance = (loglike2*beta1 + loglike1*beta2) - (loglike1*beta1 + loglike2*beta2);
     
     // accept or reject move
     bool accept_move = (log(runif_0_1()) < acceptance);

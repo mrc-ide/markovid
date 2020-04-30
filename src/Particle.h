@@ -20,9 +20,8 @@ public:
   // local copies of some parameters for convenience
   int d;
   
-  // beta_raised stores values of beta (the thermodynamic power), raised to the
-  // power GTI_pow
-  double beta_raised;
+  // thermodynamic power
+  double beta;
   
   // theta is the parameter vector in natural space
   std::vector<double> theta;
@@ -52,20 +51,17 @@ public:
   // constructors
   Particle() {};
   
-  // initialise everything EXCEPT FOR likelihood and prior values
-  void init(System &s, double beta_raised);
-  
-  // initialise likelihood and prior values
-  void init_like();
+  // initialise
+  void init(System &s, double beta);
   
   // update theta[i] via univariate Metropolis-Hastings
   void update();
   
-  double get_loglike();
-  double get_logprior();
+  // loglikelihood and logprior
+  double get_loglike(std::vector<double> &theta);
+  double get_logprior(std::vector<double> &theta);
   
   // other public methods
-  void propose_phi(int i);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();
   double get_adjustment(int i);

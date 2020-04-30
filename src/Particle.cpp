@@ -5,27 +5,19 @@ using namespace std;
 
 //------------------------------------------------
 // initialise/reset particle
-void Particle::init(System &s, double beta_raised) {
+void Particle::init(System &s, double beta) {
   
   // pointer to system object
   this->s_ptr = &s;
   
+  // thermodynamic power
+  this->beta = beta;
+  
   // local copies of some parameters for convenience
   d = s_ptr->d;
   
-  // beta_raised stores values of beta (the thermodynamic power), raised to the
-  // power GTI_pow
-  this->beta_raised = beta_raised;
-  
   // theta is the parameter vector in natural space
-  if (s_ptr->theta_init_defined) {
-    theta = s_ptr->theta_init;
-  } else {
-    theta = vector<double>(d);
-    for (int i = 0; i < d; ++i) {
-      theta[i] = runif1(s_ptr->theta_min[i], s_ptr->theta_max[i]);
-    }
-  }
+  theta = s_ptr->theta_init;
   theta_prop = vector<double>(d);
   
   // phi is a vector of transformed parameters
@@ -39,20 +31,13 @@ void Particle::init(System &s, double beta_raised) {
   bw_stepsize = 1.0;
   
   // likelihoods and priors
-  loglike = 0;
+  loglike = get_loglike(theta);
   loglike_prop = 0;
-  logprior = 0;
+  logprior = get_logprior(theta);
   logprior_prop = 0;
   
   // acceptance rates
   accept_count = 0;
-  
-}
-
-//------------------------------------------------
-// propose new value of phi[i] from univariate normal distribution
-void Particle::propose_phi(int i) {
-  phi_prop[i] = rnorm1(phi[i], bw[i]);
 }
 
 //------------------------------------------------
@@ -129,12 +114,6 @@ double Particle::get_adjustment(int i) {
 }
 
 //------------------------------------------------
-void Particle::init_like() {
-  loglike = get_loglike();
-  logprior = get_logprior();
-}
-
-//------------------------------------------------
 void Particle::update() {
   
   // set theta_prop and phi_prop to current values of theta and phi
@@ -148,7 +127,7 @@ void Particle::update() {
     }
     
     // generate new phi_prop[i]
-    propose_phi(i);
+    phi_prop[i] = rnorm1(phi[i], bw[i]);
     
     // transform phi_prop[i] to theta_prop[i]
     phi_prop_to_theta_prop(i);
@@ -158,11 +137,11 @@ void Particle::update() {
     double adj = get_adjustment(i);
     
     // calculate likelihood and prior of proposed theta
-    loglike_prop = get_loglike();
-    logprior_prop = get_logprior();
+    loglike_prop = get_loglike(theta_prop);
+    logprior_prop = get_logprior(theta);
     
     // calculate Metropolis-Hastings ratio
-    double MH = beta_raised*(loglike_prop - loglike) + (logprior_prop - logprior) + adj;
+    double MH = beta*(loglike_prop - loglike) + (logprior_prop - logprior) + adj;
     
     // accept or reject move
     bool MH_accept = (log(runif_0_1()) < MH);
@@ -203,12 +182,24 @@ void Particle::update() {
 
 //------------------------------------------------
 // define cpp loglike function
-double Particle::get_loglike() {
-  return 0.0;
+double Particle::get_loglike(vector<double> &theta) {
+  
+  // unpack parameters
+  int pi = 0;
+  double mu = theta[pi++];
+  double sigma = theta[pi++];
+  
+  // calculate loglikelihood
+  double ret = 0.0;
+  for (int i = 0; i < s_ptr->n; ++i) {
+    ret += R::dnorm4(s_ptr->x[i], mu, sigma, true);
+  }
+  
+  return ret;
 }
 
 //------------------------------------------------
 // define cpp logprior function
-double Particle::get_logprior() {
+double Particle::get_logprior(vector<double> &theta) {
   return 0.0;
 }

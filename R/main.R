@@ -1,13 +1,11 @@
 
 #------------------------------------------------
-run_mcmc <- function(data,
+run_mcmc <- function(data_list,
                      df_params,
                      burnin = 1e3,
                      samples = 1e4,
                      rungs = 1,
                      chains = 5,
-                     coupling_on = TRUE,
-                     GTI_pow = 3,
                      pb_markdown = FALSE,
                      silent = FALSE) {
   
@@ -15,29 +13,20 @@ run_mcmc <- function(data,
   
   # check df_params
   assert_dataframe(df_params)
-  assert_in(c("name", "min", "max"), names(df_params),
-            message = "df_params must contain the columns 'name', 'min', 'max'")
+  assert_in(c("name", "min", "max", "init"), names(df_params),
+            message = "df_params must contain the columns 'name', 'min', 'max', 'init")
   assert_numeric(df_params$min)
   assert_numeric(df_params$max)
   assert_leq(df_params$min, df_params$max)
-  theta_init_defined <- ("init" %in% names(df_params))
-  if (theta_init_defined) {
-    assert_numeric(df_params$init)
-    assert_greq(df_params$init, df_params$min)
-    assert_leq(df_params$init, df_params$max)
-  } else {
-    this_message <- "all min and max values must be finite when init value is not specified"
-    assert_eq(all(is.finite(df_params$min)), TRUE, message = this_message)
-    assert_eq(all(is.finite(df_params$max)), TRUE, message = this_message)
-  }
+  assert_numeric(df_params$init)
+  assert_greq(df_params$init, df_params$min)
+  assert_leq(df_params$init, df_params$max)
   
   # check MCMC parameters
   assert_single_pos_int(burnin, zero_allowed = FALSE)
   assert_single_pos_int(samples, zero_allowed = FALSE)
   assert_single_pos_int(rungs, zero_allowed = FALSE)
   assert_single_pos_int(chains, zero_allowed = FALSE)
-  assert_single_logical(coupling_on)
-  assert_single_pos(GTI_pow, zero_allowed = FALSE)
   
   # check misc parameters
   assert_single_logical(pb_markdown)
@@ -60,18 +49,15 @@ run_mcmc <- function(data,
   # ---------- define argument lists ----------
   
   # parameters to pass to C++
-  args_params <- list(x = data,
+  args_params <- list(data_list = data_list,
                       theta_min = df_params$min,
                       theta_max = df_params$max,
                       theta_init = df_params$init,
-                      theta_init_defined = theta_init_defined,
                       trans_type = df_params$trans_type,
                       skip_param = skip_param,
                       burnin = burnin,
                       samples = samples,
                       rungs = rungs,
-                      coupling_on = coupling_on,
-                      GTI_pow = GTI_pow,
                       pb_markdown = pb_markdown,
                       silent = silent)
   
@@ -147,8 +133,8 @@ run_mcmc <- function(data,
   if (rungs > 1) {
     
     # Beta raised
-    output_processed$diagnostics$beta_raised <- tidyr::expand_grid(chain = chain_names, rung = rung_names)
-    output_processed$diagnostics$beta_raised$value <- unlist(lapply(output_raw, function(x){x$beta_raised}))
+    output_processed$diagnostics$beta <- tidyr::expand_grid(chain = chain_names, rung = rung_names)
+    output_processed$diagnostics$beta$value <- unlist(lapply(output_raw, function(x) x$beta))
     
     # MC accept
     mc_accept <- tidyr::expand_grid(chain = chain_names, link = 1:(length(rung_names) - 1))
@@ -165,11 +151,8 @@ run_mcmc <- function(data,
                                       burnin = burnin,
                                       samples = samples,
                                       rungs = rungs,
-                                      chains = chains,
-                                      coupling_on = coupling_on,
-                                      GTI_pow = GTI_pow)
+                                      chains = chains)
 
-  
   # save output as custom class
   class(output_processed) <- "drjacoby_output"
   
@@ -192,9 +175,8 @@ deploy_chain <- function(args) {
   args$args_progress <- list(pb_burnin = pb_burnin,
                              pb_samples = pb_samples)
   
-  
   # run C++ function
-  ret <- main_cpp(args)
+  ret <- run_mcmc_cpp(args)
   
   return(ret)
 }

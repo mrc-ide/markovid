@@ -14,12 +14,12 @@ public:
   
   // data
   std::vector<double> x;
+  int n;
   
   // model parameters
   std::vector<double> theta_min;
   std::vector<double> theta_max;
   std::vector<double> theta_init;
-  bool theta_init_defined;
   std::vector<int> trans_type;
   std::vector<bool> skip_param;
   int d;
@@ -28,8 +28,6 @@ public:
   int burnin;
   int samples;
   int rungs;
-  bool coupling_on;
-  double GTI_pow;
   int chain;
   
   // misc parameters
