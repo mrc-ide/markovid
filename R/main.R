@@ -1,121 +1,36 @@
 
 #------------------------------------------------
-#' @title Check that drjacoby package has loaded successfully
-#'
-#' @description Simple function to check that drjacoby package has loaded 
-#'   successfully. Prints "drjacoby loaded successfully!" if so.
-#'
-#' @export
-
-check_drjacoby_loaded <- function() {
-  message("drjacoby loaded successfully!")
-}
-
-#------------------------------------------------
-#' @title Run drjacoby MCMC
-#'
-#' @description Run flexible MCMC through drjacoby. 
-#'
-#' @param data a vector of data values. When using C++ versions of the
-#'   likelihood and/or prior these values are treated internally as doubles, so
-#'   while integer and boolean values can be used, keep in mind that these will
-#'   be recast as doubles in the likelihood (i.e. \code{TRUE = 1.0}).
-#' @param df_params a dataframe of parameters. Must contain the following
-#'   elements:
-#'   \itemize{
-#'     \item \code{name} - the parameter name.
-#'     \item \code{min} - the minimum value of the parameter. \code{-Inf} is
-#'     allowed.
-#'     \item \code{max} - the maximum value of the parameter. \code{Inf} is
-#'     allowed.
-#'     \item \code{init} - the initial value of the parameter.
-#'   }
-#' @param loglike TODO.
-#' @param logprior TODO.
-#' @param burnin the number of burn-in iterations.
-#' @param samples the number of sampling iterations.
-#' @param rungs the number of temperature rungs used in Metropolis coupling (see
-#'   \code{coupling_on}).
-#' @param chains the number of independent replicates of the MCMC chain to run.
-#'   If a \code{cluster} object is defined then these chains are run in
-#'   parallel, otherwise they are run in serial.
-#' @param coupling_on whether to implement Metropolis-coupling over temperature 
-#'   rungs.
-#' @param GTI_pow the power used in the generalised thermodynamic integration 
-#'   method.
-#' @param cluster option to pass in a cluster environment, allowing chains to be
-#'   run in parallel (see package "parallel").
-#' @param pb_markdown whether to run progress bars in markdown mode, meaning
-#'   they are only updated when they reach 100% to avoid large amounts of output
-#'   being printed to markdown files.
-#' @param silent whether to suppress all console output.
-#'
-#' @importFrom utils txtProgressBar
-#' @export
-
-run_mcmc <- function(data,
+run_mcmc <- function(data_list,
                      df_params,
-                     loglike,
-                     logprior,
                      burnin = 1e3,
                      samples = 1e4,
                      rungs = 1,
                      chains = 5,
-                     coupling_on = TRUE,
-                     GTI_pow = 3,
-                     cluster = NULL,
                      pb_markdown = FALSE,
                      silent = FALSE) {
   
-  # Cleanup pointers on exit
-  on.exit(gc())
-  
   # ---------- check inputs ----------
-  # check data
-  assert_vector(data)
-  assert_numeric(data)
   
   # check df_params
   assert_dataframe(df_params)
-  assert_in(c("name", "min", "max"), names(df_params),
-            message = "df_params must contain the columns 'name', 'min', 'max'")
+  assert_in(c("name", "min", "max", "init"), names(df_params),
+            message = "df_params must contain the columns 'name', 'min', 'max', 'init")
   assert_numeric(df_params$min)
   assert_numeric(df_params$max)
   assert_leq(df_params$min, df_params$max)
-  theta_init_defined <- ("init" %in% names(df_params))
-  if (theta_init_defined) {
-    assert_numeric(df_params$init)
-    assert_greq(df_params$init, df_params$min)
-    assert_leq(df_params$init, df_params$max)
-  } else {
-    this_message <- "all min and max values must be finite when init value is not specified"
-    assert_eq(all(is.finite(df_params$min)), TRUE, message = this_message)
-    assert_eq(all(is.finite(df_params$max)), TRUE, message = this_message)
-  }
-  
-  # check loglikelihood and logprior functions
-  assert_custom_class(loglike, c("function", "character"))
-  assert_custom_class(logprior, c("function", "character"))
-  
-  # TODO - further checks that these functions are defined correctly?
+  assert_numeric(df_params$init)
+  assert_greq(df_params$init, df_params$min)
+  assert_leq(df_params$init, df_params$max)
   
   # check MCMC parameters
   assert_single_pos_int(burnin, zero_allowed = FALSE)
   assert_single_pos_int(samples, zero_allowed = FALSE)
   assert_single_pos_int(rungs, zero_allowed = FALSE)
   assert_single_pos_int(chains, zero_allowed = FALSE)
-  assert_single_logical(coupling_on)
-  assert_single_pos(GTI_pow, zero_allowed = FALSE)
   
   # check misc parameters
-  if (!is.null(cluster)) {
-    assert_custom_class(cluster, "cluster")
-  }
   assert_single_logical(pb_markdown)
   assert_single_logical(silent)
-  
-  # declare variables to avoid "no visible binding" issues
-  stage <- rung <- value <- chain <- link <- NULL
   
   
   # ---------- pre-processing ----------
@@ -130,35 +45,24 @@ run_mcmc <- function(data,
   # flag to skip over fixed parameters
   skip_param <- (df_params$min == df_params$max)
   
-  # flag whether likelihood/prior are C++ functions
-  loglike_use_cpp <- inherits(loglike, "character")
-  logprior_use_cpp <- inherits(logprior, "character")
-  
   
   # ---------- define argument lists ----------
   
   # parameters to pass to C++
-  args_params <- list(x = data,
-                      loglike_use_cpp = loglike_use_cpp,
-                      logprior_use_cpp = logprior_use_cpp,
+  args_params <- list(data_list = data_list,
                       theta_min = df_params$min,
                       theta_max = df_params$max,
                       theta_init = df_params$init,
-                      theta_init_defined = theta_init_defined,
                       trans_type = df_params$trans_type,
                       skip_param = skip_param,
                       burnin = burnin,
                       samples = samples,
                       rungs = rungs,
-                      coupling_on = coupling_on,
-                      GTI_pow = GTI_pow,
                       pb_markdown = pb_markdown,
                       silent = silent)
   
   # functions to pass to C++
-  args_functions <- list(loglike = loglike,
-                         logprior = logprior,
-                         test_convergence = test_convergence,
+  args_functions <- list(test_convergence = test_convergence,
                          update_progress = update_progress)
   
   # complete list of arguments
@@ -174,19 +78,8 @@ run_mcmc <- function(data,
   
   # ---------- run MCMC ----------
   
-  # split into parallel and serial implementations
-  if (!is.null(cluster)) {
-    
-    # run in parallel
-    parallel::clusterEvalQ(cluster, library(drjacoby))
-    output_raw <- parallel::clusterApplyLB(cl = cluster, parallel_args, deploy_chain)
-    
-  } else {
-    
-    # run in serial
-    output_raw <- lapply(parallel_args, deploy_chain)
-  }
-  
+  # run in serial
+  output_raw <- lapply(parallel_args, deploy_chain)
   
   # ---------- process output ----------
   
@@ -236,19 +129,12 @@ run_mcmc <- function(data,
     output_processed$diagnostics$rhat <- rhat_est
   }
   
-  # ESS
-  output_sub <- subset(output_processed$output, stage == "sampling" & rung == "rung1",
-                       select = as.character(param_names))
-  ess_est <- apply(output_sub, 2, coda::effectiveSize)
-  ess_est[skip_param] <- NA
-  output_processed$diagnostics$ess <- ess_est
-  
   # MC
   if (rungs > 1) {
     
     # Beta raised
-    output_processed$diagnostics$beta_raised <- tidyr::expand_grid(chain = chain_names, rung = rung_names)
-    output_processed$diagnostics$beta_raised$value <- unlist(lapply(output_raw, function(x){x$beta_raised}))
+    output_processed$diagnostics$beta <- tidyr::expand_grid(chain = chain_names, rung = rung_names)
+    output_processed$diagnostics$beta$value <- unlist(lapply(output_raw, function(x) x$beta))
     
     # MC accept
     mc_accept <- tidyr::expand_grid(chain = chain_names, link = 1:(length(rung_names) - 1))
@@ -262,16 +148,11 @@ run_mcmc <- function(data,
   ## Parameters
   output_processed$parameters <- list(data = data,
                                       df_params = df_params,
-                                      loglike = loglike,
-                                      logprior = logprior,
                                       burnin = burnin,
                                       samples = samples,
                                       rungs = rungs,
-                                      chains = chains,
-                                      coupling_on = coupling_on,
-                                      GTI_pow = GTI_pow)
+                                      chains = chains)
 
-  
   # save output as custom class
   class(output_processed) <- "drjacoby_output"
   
@@ -284,17 +165,6 @@ run_mcmc <- function(data,
 #' @noRd
 deploy_chain <- function(args) {
   
-  # convert C++ functions to pointers
-  if (args$args_params$loglike_use_cpp) {
-    args$args_functions$loglike <- RcppXPtrUtils::cppXPtr(args$args_functions$loglike)
-    RcppXPtrUtils::checkXPtr(args$args_functions$loglike, "SEXP", c("std::vector<double>",
-                                                                    "std::vector<double>"))
-  }
-  if (args$args_params$logprior_use_cpp) {
-    args$args_functions$logprior <- RcppXPtrUtils::cppXPtr(args$args_functions$logprior)
-    RcppXPtrUtils::checkXPtr(args$args_functions$logprior, "SEXP", "std::vector<double>")
-  }
-  
   # get parameters
   burnin <- args$args_params$burnin
   samples <- args$args_params$samples
@@ -305,12 +175,8 @@ deploy_chain <- function(args) {
   args$args_progress <- list(pb_burnin = pb_burnin,
                              pb_samples = pb_samples)
   
-  
   # run C++ function
-  ret <- main_cpp(args)
-  
-  # remove arguments
-  rm(args)
+  ret <- run_mcmc_cpp(args)
   
   return(ret)
 }
