@@ -1,9 +1,0 @@
-pandoc: 1.19.2.1
-pkgdown: 1.4.1
-pkgdown_sha: ~
-articles:
-  example: example.html
-  installation: installation.html
-  metropolis_coupling: metropolis_coupling.html
-  parallel: parallel.html
-

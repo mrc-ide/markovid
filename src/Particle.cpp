@@ -126,6 +126,89 @@ double Particle::get_adjustment(int i) {
     Rcpp::stop("trans_type invalid");
   }
   return ret;
-  
 }
 
+//------------------------------------------------
+void Particle::init_like() {
+  loglike = get_loglike();
+  logprior = get_logprior();
+}
+
+//------------------------------------------------
+void Particle::update() {
+  
+  // set theta_prop and phi_prop to current values of theta and phi
+  theta_prop = theta;
+  phi_prop = phi;
+  
+  // loop through parameters
+  for (int i = 0; i < d; ++i) {
+    if (s_ptr->skip_param[i]) {
+      continue;
+    }
+    
+    // generate new phi_prop[i]
+    propose_phi(i);
+    
+    // transform phi_prop[i] to theta_prop[i]
+    phi_prop_to_theta_prop(i);
+    
+    // calculate adjustment factor, taking into account forwards and backwards
+    // moves
+    double adj = get_adjustment(i);
+    
+    // calculate likelihood and prior of proposed theta
+    loglike_prop = get_loglike();
+    logprior_prop = get_logprior();
+    
+    // calculate Metropolis-Hastings ratio
+    double MH = beta_raised*(loglike_prop - loglike) + (logprior_prop - logprior) + adj;
+    
+    // accept or reject move
+    bool MH_accept = (log(runif_0_1()) < MH);
+    
+    // implement changes
+    if (MH_accept) {
+      
+      // update theta and phi
+      theta[i] = theta_prop[i];
+      phi[i] = phi_prop[i];
+      
+      // update likelihoods
+      loglike = loglike_prop;
+      logprior = logprior_prop;
+      
+      // Robbins-Monro positive update  (on the log scale)
+      bw[i] = exp(log(bw[i]) + bw_stepsize*(1 - 0.234)/sqrt(bw_index[i]));
+      bw_index[i]++;
+      
+      // add to acceptance rate count
+      accept_count++;
+      
+    } else {
+      
+      // reset theta_prop and phi_prop
+      theta_prop[i] = theta[i];
+      phi_prop[i] = phi[i];
+      
+      // Robbins-Monro negative update (on the log scale)
+      bw[i] = exp(log(bw[i]) - bw_stepsize*0.234/sqrt(bw_index[i]));
+      bw_index[i]++;
+      
+    } // end MH step
+    
+  }  // end loop over parameters
+    
+}  // end update_univar function
+
+//------------------------------------------------
+// define cpp loglike function
+double Particle::get_loglike() {
+  return 0.0;
+}
+
+//------------------------------------------------
+// define cpp logprior function
+double Particle::get_logprior() {
+  return 0.0;
+}

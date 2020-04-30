@@ -1,13 +1,11 @@
-Package: drjacoby
+Package: markovid
 Type: Package
-Title: Flexible Markov Chain Monte Carlo via Reparameterization
+Title: MCMC inference of durations and flows from UK hospital data
 Version: 1.0.1
 Authors@R: c(
-    person("Bob", "Verity", email = "r.verity@imperial.ac.uk", role = c("aut", "cre")),
-    person("Pete", "Winskill", email = "p.winskill@imperial.ac.uk", role = c("aut"))
+    person("Bob", "Verity", email = "r.verity@imperial.ac.uk", role = c("aut", "cre"))
     )
-Description: Flexible Markov chain monte carlo via
-     reparameterization.
+Description: Re-purpose of drjacoby package, tailored to COVID application.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -19,7 +17,6 @@ Imports:
     coda,
     parallel,
     ggplot2,
-    RcppXPtrUtils,
     tidyr,
     rlang,
     cowplot,
@@ -33,6 +30,5 @@ Suggests:
     rmarkdown,
     microbenchmark,
     gridExtra
-BugReports: https://github.com/mrc-ide/drjacoby/issues
 VignetteBuilder: knitr
 Depends: R (>= 3.1.0)

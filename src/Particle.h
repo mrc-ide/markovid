@@ -56,79 +56,13 @@ public:
   void init(System &s, double beta_raised);
   
   // initialise likelihood and prior values
-  template<class TYPE1, class TYPE2>
-  void init_like(TYPE1 get_loglike, TYPE2 get_logprior) {
-    loglike = Rcpp::as<double>(get_loglike(theta, s_ptr->x));
-    logprior = Rcpp::as<double>(get_logprior(theta));
-  }
+  void init_like();
   
   // update theta[i] via univariate Metropolis-Hastings
-  template<class TYPE1, class TYPE2>
-  void update(TYPE1 get_loglike, TYPE2 get_logprior) {
-    
-    // set theta_prop and phi_prop to current values of theta and phi
-    theta_prop = theta;
-    phi_prop = phi;
-    
-    // loop through parameters
-    for (int i = 0; i < d; ++i) {
-      if (s_ptr->skip_param[i]) {
-        continue;
-      }
-      
-      // generate new phi_prop[i]
-      propose_phi(i);
-      
-      // transform phi_prop[i] to theta_prop[i]
-      phi_prop_to_theta_prop(i);
-      
-      // calculate adjustment factor, taking into account forwards and backwards
-      // moves
-      double adj = get_adjustment(i);
-      
-      // calculate likelihood and prior of proposed theta
-      loglike_prop = Rcpp::as<double>(get_loglike(theta_prop, s_ptr->x));
-      logprior_prop = Rcpp::as<double>(get_logprior(theta_prop));
-      
-      // calculate Metropolis-Hastings ratio
-      double MH = beta_raised*(loglike_prop - loglike) + (logprior_prop - logprior) + adj;
-      
-      // accept or reject move
-      bool MH_accept = (log(runif_0_1()) < MH);
-      
-      // implement changes
-      if (MH_accept) {
-        
-        // update theta and phi
-        theta[i] = theta_prop[i];
-        phi[i] = phi_prop[i];
-        
-        // update likelihoods
-        loglike = loglike_prop;
-        logprior = logprior_prop;
-        
-        // Robbins-Monro positive update  (on the log scale)
-        bw[i] = exp(log(bw[i]) + bw_stepsize*(1 - 0.234)/sqrt(bw_index[i]));
-        bw_index[i]++;
-        
-        // add to acceptance rate count
-        accept_count++;
-        
-      } else {
-        
-        // reset theta_prop and phi_prop
-        theta_prop[i] = theta[i];
-        phi_prop[i] = phi[i];
-        
-        // Robbins-Monro negative update (on the log scale)
-        bw[i] = exp(log(bw[i]) - bw_stepsize*0.234/sqrt(bw_index[i]));
-        bw_index[i]++;
-        
-      } // end MH step
-      
-    }  // end loop over parameters
-    
-  }  // end update_univar function
+  void update();
+  
+  double get_loglike();
+  double get_logprior();
   
   // other public methods
   void propose_phi(int i);

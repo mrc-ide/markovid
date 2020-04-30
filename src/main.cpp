@@ -8,72 +8,18 @@
 
 using namespace std;
 
-// specify exact pattern that loglike and logprior function must take in C++
-typedef SEXP (*pattern_cpp_loglike)(std::vector<double>, std::vector<double>);
-typedef SEXP (*pattern_cpp_logprior)(std::vector<double>);
-
 //------------------------------------------------
 // main MCMC function
 Rcpp::List main_cpp(Rcpp::List args) {
   
   // get flags for R vs. C++ likelihood and prior functions
   Rcpp::List args_params = args["args_params"];
-  bool loglike_use_cpp = rcpp_to_bool(args_params["loglike_use_cpp"]);
-  bool logprior_use_cpp = rcpp_to_bool(args_params["logprior_use_cpp"]);
   
   // extract function args
   Rcpp::List args_functions = args["args_functions"];
   
-  // run MCMC with either C++ or R likelihood and prior
-  Rcpp::List ret;
-  if (loglike_use_cpp) {
-    
-    // extract likelihood function
-    SEXP cpp_loglike = args_functions["loglike"];
-    pattern_cpp_loglike get_loglike = *Rcpp::XPtr<pattern_cpp_loglike>(cpp_loglike);
-    
-    if (logprior_use_cpp) {
-      
-      // extract prior function
-      SEXP cpp_logprior = args_functions["logprior"];
-      pattern_cpp_logprior get_logprior = *Rcpp::XPtr<pattern_cpp_logprior>(cpp_logprior);
-      
-      // run MCMC with selected functions
-      ret = run_mcmc(args, get_loglike, get_logprior);
-      
-    } else {
-      
-      // extract prior function
-      Rcpp::Function get_logprior = args_functions["logprior"];
-      
-      // run MCMC with selected functions
-      ret = run_mcmc(args, get_loglike, get_logprior);
-    }
-    
-  } else {
-    
-    // extract likelihood function
-    Rcpp::Function get_loglike = args_functions["loglike"];
-    
-    if (logprior_use_cpp) {
-      
-      // extract prior function
-      SEXP cpp_logprior = args_functions["logprior"];
-      pattern_cpp_logprior get_logprior = *Rcpp::XPtr<pattern_cpp_logprior>(cpp_logprior);
-      
-      // run MCMC with selected functions
-      ret = run_mcmc(args, get_loglike, get_logprior);
-      
-    } else {
-      
-      // extract prior function
-      Rcpp::Function get_logprior = args_functions["logprior"];
-      
-      // run MCMC with selected functions
-      ret = run_mcmc(args, get_loglike, get_logprior);
-    }
-    
-  }
+  // run MCMC
+  Rcpp::List ret = run_mcmc(args);
   
   // return list
   return ret;
@@ -81,8 +27,7 @@ Rcpp::List main_cpp(Rcpp::List args) {
 
 //------------------------------------------------
 // run MCMC
-template<class TYPE1, class TYPE2>
-Rcpp::List run_mcmc(Rcpp::List args, TYPE1 get_loglike, TYPE2 get_logprior) {
+Rcpp::List run_mcmc(Rcpp::List args) {
   
   // start timer
   chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
@@ -115,7 +60,7 @@ Rcpp::List run_mcmc(Rcpp::List args, TYPE1 get_loglike, TYPE2 get_logprior) {
     particle_vec[r].init(s, beta_raised_vec[r]);
     
     // initialise particle initial likelihood and prior values
-    particle_vec[r].init_like(get_loglike, get_logprior);
+    particle_vec[r].init_like();
   }
   
   // objects for storing loglikelihood and theta values over iterations
@@ -154,7 +99,7 @@ Rcpp::List run_mcmc(Rcpp::List args, TYPE1 get_loglike, TYPE2 get_logprior) {
     for (int r = 0; r < rungs; ++r) {
       
       // update particles
-      particle_vec[r].update(get_loglike, get_logprior);
+      particle_vec[r].update();
       
       // store results
       loglike_burnin[r][rep] = particle_vec[r].loglike;
@@ -206,7 +151,7 @@ Rcpp::List run_mcmc(Rcpp::List args, TYPE1 get_loglike, TYPE2 get_logprior) {
     for (int r = 0; r < rungs; ++r) {
       
       // update particles
-      particle_vec[r].update(get_loglike, get_logprior);
+      particle_vec[r].update();
       
       // store results
       loglike_sampling[r][rep] = particle_vec[r].loglike;
