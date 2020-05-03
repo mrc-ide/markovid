@@ -67,6 +67,25 @@ public:
   std::vector<std::vector<double>> tail_IS;
   std::vector<std::vector<double>> tail_SC;
   
+  // objects for storing progression over all stratification
+  std::vector<std::vector<std::vector<double>>> admission_incidence;
+  std::vector<std::vector<std::vector<double>>> deaths_incidence;
+  std::vector<std::vector<std::vector<double>>> discharges_incidence;
+  std::vector<std::vector<std::vector<double>>> general_prevalence;
+  std::vector<std::vector<std::vector<double>>> critical_prevalence;
+  //std::vector<double> stepup;
+  //std::vector<double> stepdown;
+  
+  std::vector<double> delta_stepup;
+  std::vector<double> delta_stepdown;
+  std::vector<double> delta_deaths_general;
+  std::vector<double> delta_discharges_general;
+  std::vector<double> delta_open_general;
+  std::vector<double> delta_deaths_critical;
+  std::vector<double> delta_open_critical;
+  std::vector<double> pos_by_day;
+  std::vector<double> pos_on_day;
+  
   // theta is the parameter vector in natural space
   std::vector<double> theta;
   std::vector<double> theta_prop;
@@ -102,12 +121,12 @@ public:
   void update();
   
   // loglikelihood and logprior
-  double get_loglike(std::vector<double> &theta, int theta_i, bool init_lookup = false);
+  double get_loglike(std::vector<double> &theta, int theta_i, bool quick_exit = false);
   double get_logprior(std::vector<double> &theta, int theta_i);
   
   // other public methods
-  double get_density_gamma(double m, double s, int i);
-  double get_tail_gamma(double m, double s, int i);
+  void update_gamma_density(std::vector<double> &density_vec, double m, double s);
+  void update_gamma_tail(std::vector<double> &tail_vec, double m, double s);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();
   double get_adjustment(int i);

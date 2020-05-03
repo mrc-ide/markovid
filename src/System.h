@@ -12,6 +12,28 @@ class System {
 public:
   // PUBLIC OBJECTS
   
+  // option to return model fit
+  bool return_fit;
+  
+  // misc data
+  int n_region;
+  std::vector<int> node_x;
+  int n_node;
+  int n_spline;
+  int lookup_max;
+  int n_date_sitrep;
+  int n_age_sitrep;
+  int n_age_indlevel;
+  std::vector<double> rel_prop;
+  std::vector<int> map_age_indlevel;
+  std::vector<std::vector<int>> map_age_sitrep;
+  
+  // update rules
+  std::vector<int> update_density;
+  std::vector<int> update_region;
+  std::vector<int> update_indlevel_age;
+  std::vector<int> update_sitrep_age;
+  
   // individual-level data
   std::vector<int> age_group;
   std::vector<int> icu;
@@ -24,25 +46,12 @@ public:
   std::vector<int> date_censor;
   int n_ind;
   
-  // misc data
-  int n_sitrep;
-  std::vector<int> node_x;
-  int n_node;
-  int lookup_max;
-  int n_date_sitrep;
-  int n_age_sitrep;
-  int n_age_indlevel;
-  std::vector<double> rel_prop;
-  std::vector<int> map_age_indlevel;
-  std::vector<std::vector<int>> map_age_sitrep;
-  std::vector<int> update_param;
-  std::vector<int> update_age;
-  
-  // lookup tables
-  int lookup_n_m;
-  int lookup_n_s;
-  std::vector<std::vector<std::vector<double>>> density_gamma;
-  std::vector<std::vector<std::vector<double>>> tail_gamma;
+  // sitrep data
+  std::vector<std::vector<std::vector<int>>> daily_influx;
+  std::vector<std::vector<std::vector<int>>> new_deaths;
+  std::vector<std::vector<std::vector<int>>> new_discharges;
+  std::vector<std::vector<std::vector<int>>> total_general;
+  std::vector<std::vector<std::vector<int>>> total_critical;
   
   // model parameters
   std::vector<double> theta_min;

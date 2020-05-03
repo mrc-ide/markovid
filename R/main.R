@@ -5,9 +5,10 @@ run_mcmc <- function(data_list,
                      burnin = 1e3,
                      samples = 1e4,
                      rungs = 1,
-                     chains = 5,
+                     chains = 1,
                      pb_markdown = FALSE,
-                     silent = FALSE) {
+                     silent = FALSE,
+                     return_fit = FALSE) {
   
   # ---------- check inputs ----------
   
@@ -59,7 +60,8 @@ run_mcmc <- function(data_list,
                       samples = samples,
                       rungs = rungs,
                       pb_markdown = pb_markdown,
-                      silent = silent)
+                      silent = silent,
+                      return_fit = return_fit)
   
   # functions to pass to C++
   args_functions <- list(test_convergence = test_convergence,
@@ -80,6 +82,24 @@ run_mcmc <- function(data_list,
   
   # run in serial
   output_raw <- lapply(parallel_args, deploy_chain)
+  
+  
+  # ---------- option to return model fit ----------
+  
+  if (return_fit) {
+    
+    # get into long form
+    ret <- nested_to_long(output_raw[[1]])
+    names(ret) <- c("x", "value", "age", "region", "metric")
+    ret$metric <- c("admission_incidence",
+                    "deaths_incidence",
+                    "discharges_incidence",
+                    "general_prevalence",
+                    "critical_prevalence")[ret$metric]
+    
+    return(ret)
+    
+  }
   
   # ---------- process output ----------
   
@@ -179,23 +199,5 @@ deploy_chain <- function(args) {
   ret <- run_mcmc_cpp(args)
   
   return(ret)
-}
-
-#------------------------------------------------
-#' Extract theta into list of matrices over rungs
-#'
-#' @param theta_list List of thetas
-#' @param param_names Vector of parameter names
-#' @param rung_names Vector of rung names
-#'
-#' @return List of matrices
-get_theta_rungs <- function(theta_list, param_names, rung_names) {
-  ret <- mapply(function(x) {
-    ret <- as.data.frame(rcpp_to_matrix(x))
-    names(ret) <- param_names
-    ret
-  }, theta_list, SIMPLIFY = FALSE)
-  names(ret) <- rung_names
-  ret
 }
 

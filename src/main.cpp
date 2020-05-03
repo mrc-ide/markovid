@@ -43,6 +43,17 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
     particle_vec[r].init(s, beta_vec[r]);
   }
   
+  // option to return model fit
+  if (s.return_fit) {
+    
+    // return model fit
+    return Rcpp::List::create(Rcpp::Named("admission_incidence") = particle_vec[0].admission_incidence,
+                              Rcpp::Named("deaths_incidence") = particle_vec[0].deaths_incidence,
+                              Rcpp::Named("discharges_incidence") = particle_vec[0].discharges_incidence,
+                              Rcpp::Named("general_prevalence") = particle_vec[0].general_prevalence,
+                              Rcpp::Named("critical_prevalence") = particle_vec[0].critical_prevalence);
+  }
+  
   // objects for storing loglikelihood and theta values over iterations
   vector<vector<double>> loglike_burnin(rungs, vector<double>(s.burnin));
   vector<vector<double>> logprior_burnin(rungs, vector<double>(s.burnin));
@@ -237,4 +248,5 @@ void coupling(vector<Particle> &particle_vec, vector<int> &mc_accept) {
   }  // end loop over rungs
   
 }
+
 
