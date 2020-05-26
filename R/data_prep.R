@@ -8,6 +8,9 @@ prepare_deaths <- function(deaths) {
     # subset to NHSE deaths only
     deaths <- subset(deaths, nhse == "reported by NHSE")
     
+    # make age numeric
+    deaths$age <- as.numeric(as.character(deaths$age))
+    
     # make sex boolean
     deaths$sex_female <- c(TRUE, FALSE)[match(deaths$gender, c("female", "male"))]
     
@@ -195,8 +198,9 @@ prepare_indlevel <- function(indlevel) {
     dup_ID <- indlevel$case_id[duplicated(indlevel$case_id)]
     indlevel <- subset(indlevel, !(indlevel$case_id %in% dup_ID))
     
-    # replace labtest date with NA if < admission date
-    indlevel$date_labtest[indlevel$date_labtest < indlevel$date_admission] <- NA
+    # replace labtest date with admission date if labest < admission
+    w <- which(indlevel$date_labtest < indlevel$date_admission)
+    indlevel$date_labtest[w] <- indlevel$date_admission[w]
     
     # if have final outcome, must have accompanying date
     indlevel <- subset(indlevel, !(!is.na(final_outcome) & is.na(date_final_outcome)))
@@ -258,9 +262,6 @@ prepare_indlevel <- function(indlevel) {
 #' @export
 
 prepare_sitrep_age <- function(sitrep, deaths) {
-    
-    #sitrep <- sitrep_split[[1]]
-    #deaths <- deaths_split[[1]]
     
     # define age bands
     age_bands <- data.frame(group = 1:5,

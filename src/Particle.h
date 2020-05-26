@@ -43,12 +43,12 @@ public:
   std::vector<double> m_SC;
   
   // coefficient of variation of durations
-  std::vector<double> s_AI;
-  std::vector<double> s_AD;
-  std::vector<double> s_AC;
-  std::vector<double> s_ID;
-  std::vector<double> s_IS;
-  std::vector<double> s_SC;
+  //std::vector<double> s_AI;
+  //std::vector<double> s_AD;
+  //std::vector<double> s_AC;
+  //std::vector<double> s_ID;
+  //std::vector<double> s_IS;
+  //std::vector<double> s_SC;
   
   // dynamic lookup tables for interval distributions
   std::vector<double> density_AL;
@@ -59,6 +59,8 @@ public:
   std::vector<std::vector<double>> density_IS;
   std::vector<std::vector<double>> density_SC;
   
+  std::vector<std::vector<double>> density_AD_sitrep;
+  
   // dynamic lookup tables for complementary cumulative density (ccdf) distributions
   std::vector<std::vector<double>> tail_AI;
   std::vector<std::vector<double>> tail_AD;
@@ -66,6 +68,8 @@ public:
   std::vector<std::vector<double>> tail_ID;
   std::vector<std::vector<double>> tail_IS;
   std::vector<std::vector<double>> tail_SC;
+  
+  std::vector<std::vector<double>> tail_AD_sitrep;
   
   // objects for storing progression over all stratification
   std::vector<std::vector<std::vector<double>>> admission_incidence;

@@ -41,12 +41,12 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
   m_ID <- params[sprintf("m_ID%s", 1:n_age)]
   m_IS <- params[sprintf("m_IS%s", 1:n_age)]
   m_SC <- params[sprintf("m_SC%s", 1:n_age)]
-  s_AI <- params[sprintf("s_AI%s", 1:n_age)]
-  s_AD <- params[sprintf("s_AD%s", 1:n_age)]
-  s_AC <- params[sprintf("s_AC%s", 1:n_age)]
-  s_ID <- params[sprintf("s_ID%s", 1:n_age)]
-  s_IS <- params[sprintf("s_IS%s", 1:n_age)]
-  s_SC <- params[sprintf("s_SC%s", 1:n_age)]
+  s_AI <- params["s_AI"]
+  s_AD <- params["s_AD"]
+  s_AC <- params["s_AC"]
+  s_ID <- params["s_ID"]
+  s_IS <- params["s_IS"]
+  s_SC <- params["s_SC"]
   
   # sample from data with replacement
   n <- length(date_admission)
@@ -56,18 +56,12 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
                        age_group = age_group[s])
   
   # draw interval times
-  t_AI = rgamma(n_samp, shape = 1/s_AI[df_sim$age_group]^2,
-                scale = m_AI[df_sim$age_group]*s_AI[df_sim$age_group]^2)
-  t_AD = rgamma(n_samp, shape = 1/s_AD[df_sim$age_group]^2,
-                scale = m_AD[df_sim$age_group]*s_AD[df_sim$age_group]^2)
-  t_AC = rgamma(n_samp, shape = 1/s_AC[df_sim$age_group]^2,
-                scale = m_AC[df_sim$age_group]*s_AC[df_sim$age_group]^2)
-  t_ID = rgamma(n_samp, shape = 1/s_ID[df_sim$age_group]^2,
-                scale = m_ID[df_sim$age_group]*s_ID[df_sim$age_group]^2)
-  t_IS = rgamma(n_samp, shape = 1/s_IS[df_sim$age_group]^2,
-                scale = m_IS[df_sim$age_group]*s_IS[df_sim$age_group]^2)
-  t_SC = rgamma(n_samp, shape = 1/s_SC[df_sim$age_group]^2,
-                scale = m_SC[df_sim$age_group]*s_SC[df_sim$age_group]^2)
+  t_AI = rgamma(n_samp, shape = 1/s_AI^2, scale = m_AI[df_sim$age_group]*s_AI^2)
+  t_AD = rgamma(n_samp, shape = 1/s_AD^2, scale = m_AD[df_sim$age_group]*s_AD^2)
+  t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC[df_sim$age_group]*s_AC^2)
+  t_ID = rgamma(n_samp, shape = 1/s_ID^2, scale = m_ID[df_sim$age_group]*s_ID^2)
+  t_IS = rgamma(n_samp, shape = 1/s_IS^2, scale = m_IS[df_sim$age_group]*s_IS^2)
+  t_SC = rgamma(n_samp, shape = 1/s_SC^2, scale = m_SC[df_sim$age_group]*s_SC^2)
   
   # draw progression routes
   route_AI = as.logical(rbinom(n_samp, 1, p_AI[df_sim$age_group]))
