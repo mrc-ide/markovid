@@ -4,7 +4,7 @@ run_mcmc <- function(data_list,
                      df_params,
                      burnin = 1e3,
                      samples = 1e4,
-                     rungs = 1,
+                     beta_vec = 1,
                      chains = 1,
                      pb_markdown = FALSE,
                      silent = FALSE,
@@ -26,7 +26,6 @@ run_mcmc <- function(data_list,
   # check MCMC parameters
   assert_single_pos_int(burnin, zero_allowed = FALSE)
   assert_single_pos_int(samples, zero_allowed = FALSE)
-  assert_single_pos_int(rungs, zero_allowed = FALSE)
   assert_single_pos_int(chains, zero_allowed = FALSE)
   
   # check misc parameters
@@ -35,6 +34,9 @@ run_mcmc <- function(data_list,
   
   
   # ---------- pre-processing ----------
+  
+  # get number of rungs
+  rungs <- length(beta_vec)
   
   # calculate transformation type for each parameter
   # 0 = [-Inf,Inf] -> phi = theta
@@ -58,7 +60,7 @@ run_mcmc <- function(data_list,
                       skip_param = skip_param,
                       burnin = burnin,
                       samples = samples,
-                      rungs = rungs,
+                      beta_vec = beta_vec,
                       pb_markdown = pb_markdown,
                       silent = silent,
                       return_fit = return_fit)

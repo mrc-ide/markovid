@@ -1,7 +1,7 @@
 
 #include "main.h"
 #include "misc_v7.h"
-#include "probability_v3.h"
+#include "probability_v10.h"
 #include "System.h"
 
 #include <chrono>
@@ -29,19 +29,17 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   
   // local copies of some parameters for convenience
   int d = s.d;
+  vector<double> beta_vec = s.beta_vec;
   int rungs = s.rungs;
   
   // initialise vector of particles
-  vector<double> beta_vec(rungs);
   vector<Particle> particle_vec(rungs);
   for (int r = 0; r < rungs; ++r) {
-    
-    // calculate thermodynamic power of this rung
-    beta_vec[r] = (rungs == 1) ? 1 : 1.0 - r / double(rungs-1);
-    
-    // initialise particle
-    particle_vec[r].init(s, beta_vec[r]);
+    particle_vec[r].init(s);
   }
+  
+  // specify rung order
+  vector<int> rung_order = seq_int(0, rungs-1);
   
   // option to return model fit
   if (s.return_fit) {
@@ -90,16 +88,16 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
     for (int r = 0; r < rungs; ++r) {
       
       // update particles
-      particle_vec[r].update();
+      particle_vec[rung_order[r]].update(beta_vec[rung_order[r]]);
       
       // store results
-      loglike_burnin[r][rep] = particle_vec[r].loglike;
-      logprior_burnin[r][rep] = particle_vec[r].logprior;
-      theta_burnin[r][rep] = particle_vec[r].theta;
+      loglike_burnin[r][rep] = particle_vec[rung_order[r]].loglike;
+      logprior_burnin[r][rep] = particle_vec[rung_order[r]].logprior;
+      theta_burnin[r][rep] = particle_vec[rung_order[r]].theta;
     }
     
     // perform Metropolis coupling
-    coupling(particle_vec, mc_accept_burnin);
+    coupling(particle_vec, mc_accept_burnin, true, beta_vec, rung_order);
     
     // update progress bars
     if (!s.silent) {
@@ -140,16 +138,16 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
     for (int r = 0; r < rungs; ++r) {
       
       // update particles
-      particle_vec[r].update();
+      particle_vec[rung_order[r]].update(beta_vec[rung_order[r]]);
       
       // store results
-      loglike_sampling[r][rep] = particle_vec[r].loglike;
-      logprior_sampling[r][rep] = particle_vec[r].logprior;
-      theta_sampling[r][rep] = particle_vec[r].theta;
+      loglike_sampling[r][rep] = particle_vec[rung_order[r]].loglike;
+      logprior_sampling[r][rep] = particle_vec[rung_order[r]].logprior;
+      theta_sampling[r][rep] = particle_vec[rung_order[r]].theta;
     }
     
     // perform Metropolis coupling
-    coupling(particle_vec, mc_accept_sampling);
+    coupling(particle_vec, mc_accept_sampling, false, beta_vec, rung_order);
     
     // update progress bars
     if (!s.silent) {
@@ -166,7 +164,7 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   
   // print final diagnostics
   if (!s.silent) {
-    double accept_rate = particle_vec[rungs-1].accept_count/double(s.samples*d);
+    double accept_rate = particle_vec[rung_order[rungs-1]].accept_count/double(s.samples*d);
     Rcpp::Rcout << "acceptance rate: " << round(accept_rate*1000)/10.0 << "%\n";
   }
   
@@ -194,25 +192,31 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
 
 //------------------------------------------------
 // Metropolis-coupling over temperature rungs
-void coupling(vector<Particle> &particle_vec, vector<int> &mc_accept) {
+void coupling(vector<Particle> &particle_vec, vector<int> &mc_accept, bool adaptive,
+              vector<double> &beta_vec, vector<int> &rung_order) {
   
   // get number of rungs
-  int rungs = int(particle_vec.size());
+  int rungs = int(beta_vec.size());
+  
+  // return if single rung
+  if (rungs == 1) {
+    return;
+  }
   
   // loop over rungs, starting with the hottest chain and moving to the cold
   // chain. Each time propose a swap with the next rung up
-  for (int i = 0; i < (rungs-1); ++i) {
+  for (int i = 1; i < rungs; ++i) {
     
     // define rungs of interest
-    int rung1 = i;
-    int rung2 = i+1;
+    int rung1 = rung_order[i-1];
+    int rung2 = rung_order[i];
     
     // get log-likelihoods and beta values of two chains in the comparison
     double loglike1 = particle_vec[rung1].loglike;
     double loglike2 = particle_vec[rung2].loglike;
     
-    double beta1 = particle_vec[rung1].beta;
-    double beta2 = particle_vec[rung2].beta;
+    double beta1 = beta_vec[rung1];
+    double beta2 = beta_vec[rung2];
     
     // calculate acceptance ratio (still in log space)
     double acceptance = (loglike2*beta1 + loglike1*beta2) - (loglike1*beta1 + loglike2*beta2);
@@ -223,27 +227,35 @@ void coupling(vector<Particle> &particle_vec, vector<int> &mc_accept) {
     // implement swap
     if (accept_move) {
       
-      // swap parameter values
-      vector<double> theta_tmp = particle_vec[rung1].theta;
-      particle_vec[rung1].theta = particle_vec[rung2].theta;
-      particle_vec[rung2].theta = theta_tmp;
+      // swap beta values
+      beta_vec[rung1] = beta2;
+      beta_vec[rung2] = beta1;
       
-      vector<double> phi_tmp = particle_vec[rung1].phi;
-      particle_vec[rung1].phi = particle_vec[rung2].phi;
-      particle_vec[rung2].phi = phi_tmp;
-      
-      // swap loglikelihoods
-      double loglike_tmp = particle_vec[rung1].loglike;
-      particle_vec[rung1].loglike = particle_vec[rung2].loglike;
-      particle_vec[rung2].loglike = loglike_tmp;
-      
-      double logprior_tmp = particle_vec[rung1].logprior;
-      particle_vec[rung1].logprior = particle_vec[rung2].logprior;
-      particle_vec[rung2].logprior = logprior_tmp;
+      // swap rung order
+      int tmp = rung_order[i-1];
+      rung_order[i-1] = rung_order[i];
+      rung_order[i] = tmp;
       
       // update acceptance rates
-      mc_accept[i]++;
+      mc_accept[i-1]++;
+      
+      // adaptive update
+      if (adaptive) {
+        
+        
+        
+      }  // end adaptive update
+      
+    } else {  // if reject move
+      
+      // adaptive update
+      if (adaptive) {
+        
+      }  // end adaptive update
+      
     }
+    
+    //print_vector(rung_order);
     
   }  // end loop over rungs
   

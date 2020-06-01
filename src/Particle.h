@@ -3,7 +3,7 @@
 
 #include "System.h"
 #include "misc_v7.h"
-#include "probability_v3.h"
+#include "probability_v10.h"
 
 #include <Rcpp.h>
 
@@ -17,9 +17,6 @@ public:
   // pointer to system object
   System * s_ptr;
   
-  // thermodynamic power
-  double beta;
-  
   // local copies of some parameters for convenience
   int d;
   
@@ -29,47 +26,44 @@ public:
   // population proportions
   std::vector<double> scale_rel_prop;
   
+  // rescaling parameters
+  std::vector<double> scale_p_AI;
+  std::vector<double> scale_p_AD;
+  std::vector<double> scale_p_ID;
+  
+  // lab test weights
+  std::vector<double> pos_on_day;
+  std::vector<double> neg_by_day;
+  std::vector<double> pos_by_day;
+  
   // transition probabilities
   std::vector<double> p_AI;
   std::vector<double> p_AD;
   std::vector<double> p_ID;
   
   // mean durations
-  std::vector<double> m_AI;
   std::vector<double> m_AD;
   std::vector<double> m_AC;
   std::vector<double> m_ID;
   std::vector<double> m_IS;
   std::vector<double> m_SC;
   
-  // coefficient of variation of durations
-  //std::vector<double> s_AI;
-  //std::vector<double> s_AD;
-  //std::vector<double> s_AC;
-  //std::vector<double> s_ID;
-  //std::vector<double> s_IS;
-  //std::vector<double> s_SC;
-  
   // dynamic lookup tables for interval distributions
   std::vector<double> density_AL;
-  std::vector<std::vector<double>> density_AI;
-  std::vector<std::vector<double>> density_AD;
+  std::vector<double> density_AI;
+  std::vector<double> density_AD;
   std::vector<std::vector<double>> density_AC;
-  std::vector<std::vector<double>> density_ID;
-  std::vector<std::vector<double>> density_IS;
-  std::vector<std::vector<double>> density_SC;
-  
-  std::vector<std::vector<double>> density_AD_sitrep;
+  std::vector<double> density_ID;
+  std::vector<double> density_IS;
+  std::vector<double> density_SC;
   
   // dynamic lookup tables for complementary cumulative density (ccdf) distributions
-  std::vector<std::vector<double>> tail_AI;
-  std::vector<std::vector<double>> tail_AD;
+  std::vector<double> tail_AI;
+  std::vector<double> tail_AD;
   std::vector<std::vector<double>> tail_AC;
-  std::vector<std::vector<double>> tail_ID;
-  std::vector<std::vector<double>> tail_IS;
-  std::vector<std::vector<double>> tail_SC;
-  
-  std::vector<std::vector<double>> tail_AD_sitrep;
+  std::vector<double> tail_ID;
+  std::vector<double> tail_IS;
+  std::vector<double> tail_SC;
   
   // objects for storing progression over all stratification
   std::vector<std::vector<std::vector<double>>> admission_incidence;
@@ -77,8 +71,6 @@ public:
   std::vector<std::vector<std::vector<double>>> discharges_incidence;
   std::vector<std::vector<std::vector<double>>> general_prevalence;
   std::vector<std::vector<std::vector<double>>> critical_prevalence;
-  //std::vector<double> stepup;
-  //std::vector<double> stepdown;
   
   std::vector<double> delta_stepup;
   std::vector<double> delta_stepdown;
@@ -87,8 +79,6 @@ public:
   std::vector<double> delta_open_general;
   std::vector<double> delta_deaths_critical;
   std::vector<double> delta_open_critical;
-  std::vector<double> pos_by_day;
-  std::vector<double> pos_on_day;
   
   // theta is the parameter vector in natural space
   std::vector<double> theta;
@@ -119,10 +109,10 @@ public:
   Particle() {};
   
   // initialise
-  void init(System &s, double beta);
+  void init(System &s);
   
   // update theta[i] via univariate Metropolis-Hastings
-  void update();
+  void update(double beta);
   
   // loglikelihood and logprior
   double get_loglike(std::vector<double> &theta, int theta_i, bool quick_exit = false);

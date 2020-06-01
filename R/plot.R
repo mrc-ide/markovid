@@ -340,6 +340,7 @@ plot_CrI <- function (x, show = NULL, param_names = NULL, rotate = FALSE) {
   # create plot
   ret <- ggplot2::ggplot(df_plot) + ggplot2::theme_bw() +
     ggplot2::geom_pointrange(ggplot2::aes(x = param, y = Q50, ymin = Q2.5, ymax = Q97.5)) +
+    ggplot2::geom_point(ggplot2::aes(x = param, y = MAP, col = "red")) +
     ggplot2::scale_x_discrete(labels = param_names) +
     ggplot2::xlab("") + ggplot2::ylab("95% CrI")
   

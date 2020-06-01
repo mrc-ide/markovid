@@ -71,23 +71,6 @@ void System::load(Rcpp::List args) {
     }
   }
   
-  // lookup tables
-  //lookup_n_m = 100;
-  //lookup_n_s = 100;
-  //density_gamma = vector<vector<vector<double>>>(lookup_n_m, vector<vector<double>>(lookup_n_s, vector<double>(lookup_max)));
-  //tail_gamma = vector<vector<vector<double>>>(lookup_n_m, vector<vector<double>>(lookup_n_s, vector<double>(lookup_max)));
-  //for (int i = 0; i < lookup_n_m; ++i) {
-  //  double m = 30.0 * i / double(lookup_n_m - 1);
-  //  for (int j = 0; j < lookup_n_s; ++j) {
-  //    double s = j / double(lookup_n_s - 1);
-  //    for (int k = 0; k < lookup_max; ++k) {
-  //      density_gamma[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, true, false) -
-  //                               R::pgamma(k, 1.0/(s*s), m*s*s, true, false);
-  //      tail_gamma[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, false, false);
-  //    }
-  //  }
-  //}
-  
   // model parameters
   theta_min = rcpp_to_vector_double(args_params["theta_min"]);
   theta_max = rcpp_to_vector_double(args_params["theta_max"]);
@@ -99,11 +82,30 @@ void System::load(Rcpp::List args) {
   // MCMC parameters
   burnin = rcpp_to_int(args_params["burnin"]);
   samples = rcpp_to_int(args_params["samples"]);
-  rungs = rcpp_to_int(args_params["rungs"]);
+  beta_vec = rcpp_to_vector_double(args_params["beta_vec"]);
+  rungs = beta_vec.size();
   chain = rcpp_to_int(args_params["chain"]);
   
   // misc parameters
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
+  
+  // lookup tables
+  int n_m = 2001;
+  int n_s = 101;
+  gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
+  gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
+  print("initializing lookup tables");
+  for (int i = 0; i < n_m; ++i) {
+    double m = double(i) / 100.0;
+    for (int j = 0; j < n_s; ++j) {
+      double s = double(j) / 100.0;
+      for (int k = 0; k < lookup_max; ++k) {
+        gamma_density_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, true, false) -
+                                        R::pgamma(k, 1.0/(s*s), m*s*s, true, false);
+        gamma_tail_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, false, false);
+      }
+    }
+  }
   
 }

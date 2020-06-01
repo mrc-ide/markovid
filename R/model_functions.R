@@ -35,12 +35,12 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
   p_AI <- params[sprintf("p_AI%s", 1:n_age)]
   p_AD <- params[sprintf("p_AD%s", 1:n_age)]
   p_ID <- params[sprintf("p_ID%s", 1:n_age)]
-  m_AI <- params[sprintf("m_AI%s", 1:n_age)]
-  m_AD <- params[sprintf("m_AD%s", 1:n_age)]
+  m_AI <- params["m_AI"]
+  m_AD <- params["m_AD"]
   m_AC <- params[sprintf("m_AC%s", 1:n_age)]
-  m_ID <- params[sprintf("m_ID%s", 1:n_age)]
-  m_IS <- params[sprintf("m_IS%s", 1:n_age)]
-  m_SC <- params[sprintf("m_SC%s", 1:n_age)]
+  m_ID <- params["m_ID"]
+  m_IS <- params["m_IS"]
+  m_SC <- params["m_SC"]
   s_AI <- params["s_AI"]
   s_AD <- params["s_AD"]
   s_AC <- params["s_AC"]
@@ -56,12 +56,12 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
                        age_group = age_group[s])
   
   # draw interval times
-  t_AI = rgamma(n_samp, shape = 1/s_AI^2, scale = m_AI[df_sim$age_group]*s_AI^2)
-  t_AD = rgamma(n_samp, shape = 1/s_AD^2, scale = m_AD[df_sim$age_group]*s_AD^2)
+  t_AI = rgamma(n_samp, shape = 1/s_AI^2, scale = m_AI*s_AI^2)
+  t_AD = rgamma(n_samp, shape = 1/s_AD^2, scale = m_AD*s_AD^2)
   t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC[df_sim$age_group]*s_AC^2)
-  t_ID = rgamma(n_samp, shape = 1/s_ID^2, scale = m_ID[df_sim$age_group]*s_ID^2)
-  t_IS = rgamma(n_samp, shape = 1/s_IS^2, scale = m_IS[df_sim$age_group]*s_IS^2)
-  t_SC = rgamma(n_samp, shape = 1/s_SC^2, scale = m_SC[df_sim$age_group]*s_SC^2)
+  t_ID = rgamma(n_samp, shape = 1/s_ID^2, scale = m_ID*s_ID^2)
+  t_IS = rgamma(n_samp, shape = 1/s_IS^2, scale = m_IS*s_IS^2)
+  t_SC = rgamma(n_samp, shape = 1/s_SC^2, scale = m_SC*s_SC^2)
   
   # draw progression routes
   route_AI = as.logical(rbinom(n_samp, 1, p_AI[df_sim$age_group]))

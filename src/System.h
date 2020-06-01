@@ -64,12 +64,18 @@ public:
   // MCMC parameters
   int burnin;
   int samples;
+  std::vector<double> beta_vec;
   int rungs;
   int chain;
   
   // misc parameters
   bool pb_markdown;
   bool silent;
+  
+  // lookup tables
+  std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
+  std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
+  
   
   // PUBLIC FUNCTIONS
   
