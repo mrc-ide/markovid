@@ -30,6 +30,8 @@ void Particle::init(System &s) {
   pos_by_day = vector<double>(s_ptr->lookup_max);
   
   // transition probabilities
+  //p_AI_node = vector<double>(3);
+  //p_AI = vector<double>(111);
   p_AI = vector<double>(s_ptr->n_age_indlevel);
   p_AD = vector<double>(s_ptr->n_age_indlevel);
   p_ID = vector<double>(s_ptr->n_age_indlevel);
@@ -266,6 +268,11 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     scale_rel_prop[i] = theta[pi++];
   }
   
+  // transition cubic spline nodes
+  //for (int i = 0; i < 3; ++i) {
+  //  p_AI_node[i] = theta[pi++];
+  //}
+  
   // transition probabilities
   for (int i = 0; i < s_ptr->n_age_indlevel; ++i) {
     p_AI[i] = theta[pi++];
@@ -318,6 +325,25 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   
   // initialise loglikelihood
   double ret = 0.0;
+  
+  // ----------------------------------------------------------------
+  // calculate cubic plines
+  
+  //vector<double> p_AI_nodex = {0, 50, 110};
+  //vector<double> age_seq(111);
+  //for (int i = 0; i < 111; ++i) {
+  //  age_seq[i] = i;
+  //}
+  //cubic_spline(p_AI_nodex, p_AI_node, age_seq, p_AI);
+  //for (int i = 0; i < 111; ++i) {
+  //  p_AI[i] = 1.0 / (1.0 + exp(-p_AI[i]));
+  //}
+  //print_vector(p_AI);
+  //Rcpp::stop("foo");
+  //for (int i = 0; i < 111; ++i) {
+    //p_AI[i]
+  //}
+  
   
   // ----------------------------------------------------------------
   // update density lookup tables
@@ -410,6 +436,13 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         continue;
       }
       
+      // reset progression objects
+      fill(admission_incidence[region_i][age_i].begin(), admission_incidence[region_i][age_i].end(), 0.0);
+      fill(deaths_incidence[region_i][age_i].begin(), deaths_incidence[region_i][age_i].end(), 0.0);
+      fill(discharges_incidence[region_i][age_i].begin(), discharges_incidence[region_i][age_i].end(), 0.0);
+      fill(general_prevalence[region_i][age_i].begin(), general_prevalence[region_i][age_i].end(), 0.0);
+      fill(critical_prevalence[region_i][age_i].begin(), critical_prevalence[region_i][age_i].end(), 0.0);
+      
       // loop through individual-level age groups within this sitrep age group
       for (unsigned int age_j = 0; age_j < s_ptr->map_age_sitrep[age_i].size(); ++age_j) {
         
@@ -427,11 +460,11 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         }
         
         // reset progression objects
-        fill(admission_incidence[region_i][age_i].begin(), admission_incidence[region_i][age_i].end(), 0.0);
-        fill(deaths_incidence[region_i][age_i].begin(), deaths_incidence[region_i][age_i].end(), 0.0);
-        fill(discharges_incidence[region_i][age_i].begin(), discharges_incidence[region_i][age_i].end(), 0.0);
-        fill(general_prevalence[region_i][age_i].begin(), general_prevalence[region_i][age_i].end(), 0.0);
-        fill(critical_prevalence[region_i][age_i].begin(), critical_prevalence[region_i][age_i].end(), 0.0);
+        //fill(admission_incidence[region_i][age_i].begin(), admission_incidence[region_i][age_i].end(), 0.0);
+        //fill(deaths_incidence[region_i][age_i].begin(), deaths_incidence[region_i][age_i].end(), 0.0);
+        //fill(discharges_incidence[region_i][age_i].begin(), discharges_incidence[region_i][age_i].end(), 0.0);
+        //fill(general_prevalence[region_i][age_i].begin(), general_prevalence[region_i][age_i].end(), 0.0);
+        //fill(critical_prevalence[region_i][age_i].begin(), critical_prevalence[region_i][age_i].end(), 0.0);
         
         // store incidence in stepup and stepdown care
         std::vector<double> stepup(s_ptr->n_spline);
@@ -450,6 +483,9 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
           delta_open_critical[i] =  p_ID_i * tail_ID[i] +
                                     (1 - p_ID_i) * tail_IS[i];
         }
+        
+        //print(age_i, age_indlevel, scale_rel_prop[age_i], s_ptr->rel_prop[age_indlevel],
+        //      scale_rel_prop[age_i] * s_ptr->rel_prop[age_indlevel]);
         
         // loop through each spline day in turn
         for (int i = 0; i < s_ptr->n_spline; ++i) {

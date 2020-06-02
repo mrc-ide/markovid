@@ -2,7 +2,7 @@
 #pragma once
 
 #include "System.h"
-#include "misc_v7.h"
+#include "misc_v10.h"
 #include "probability_v10.h"
 
 #include <Rcpp.h>
@@ -37,6 +37,7 @@ public:
   std::vector<double> pos_by_day;
   
   // transition probabilities
+  std::vector<double> p_AI_node;
   std::vector<double> p_AI;
   std::vector<double> p_AD;
   std::vector<double> p_ID;
