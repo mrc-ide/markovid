@@ -50,7 +50,7 @@ region_names <- c("east of england", "london", "midlands",
 region_list <- as.list(region_names)
 names(region_list) <- region_list
 
-region_list <- list("all England" = region_names)
+#region_list <- list("all England" = region_names)
 
 # subset regions
 indlevel$region <- as.character(indlevel$region)
@@ -87,10 +87,10 @@ df_age_sitrep <- data.frame(sitrep_group = seq_along(sitrep_lower),
                             stringsAsFactors = FALSE)
 
 # define individual-level age grouping
-#indlevel_lower <- c(0, 6, 18, seq(45, 85, 5))
+indlevel_lower <- c(0, 6, 18, seq(45, 85, 5))
 #indlevel_lower <- seq(0, 85, 5)
 #indlevel_lower <- c(0, 6, 18, 65, 70, 85)
-indlevel_lower <- c(0, 6, 18, 65, 85)
+#indlevel_lower <- c(0, 6, 18, 65, 85)
 indlevel_upper <- c(indlevel_lower[-1] - 1, Inf)
 indlevel_name <- paste(indlevel_lower, indlevel_upper, sep = "-")
 indlevel_name[length(indlevel_name)] <- sprintf("%s+", indlevel_lower[length(indlevel_name)])
@@ -273,8 +273,8 @@ data_list <- list(sitrep = sitrep_list,
 # MCMC parameters
 
 # define MCMC parameters
-burnin <- 1e2
-samples <- 1e2
+burnin <- 1e3
+samples <- 1e3
 chains <- 1
 beta_vec <- 1
 pb_markdown <- FALSE
@@ -300,7 +300,7 @@ df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]),
                    create_param_df("m_AC", min = 0, max = 20, init = 5, density = 3),
                    data.frame(name = "m_ID", min = 0, max = 20, init = 5, density = 4, region = 0, indlevel_age = 0, sitrep_age = 0),
                    data.frame(name = "m_IS", min = 0, max = 20, init = 5, density = 5, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "m_SC", min = 0, max = 20, init = 5, density = 6, region = 0, indlevel_age = 0, sitrep_age = 0),
+                   data.frame(name = "m_SC", min = 0, max = 5, init = 2, density = 6, region = 0, indlevel_age = 0, sitrep_age = 0),
                    data.frame(name = "s_AI", min = 0, max = 1, init = 0.9, density = 1, region = 0, indlevel_age = 0, sitrep_age = 0),
                    data.frame(name = "s_AD", min = 0, max = 1, init = 0.9, density = 2, region = 0, indlevel_age = 0, sitrep_age = 0),
                    data.frame(name = "s_AC", min = 0, max = 1, init = 0.9, density = 3, region = 0, indlevel_age = 0, sitrep_age = 0),
@@ -327,10 +327,10 @@ data_list$update_sitrep_age <- df_params$sitrep_age
 # ------------------------------------------------------------------
 # Run MCMC
 
-beta_vec <- rev(c(1e-5, 2e-5, 3e-5, 4e-5, 5e-5, 6e-5, 7e-5, 8e-5, 9e-5,
-                  1e-4, 2e-4, 3e-4, 4e-4, 5e-4, 6e-4, 7e-4, 8e-4, 9e-4,
+beta_vec <- rev(c(seq(1e-5, 9.5e-5, 5e-6),
+                  seq(1e-4, 9e-4, 1e-4),
                   1e-3, 3e-3, 6e-3, 1e-2, 3e-2, 6e-2, 0.1, 0.5, 1))
-beta_vec <- c(1)
+#beta_vec <- c(1)
 length(beta_vec)
 
 # run MCMC
@@ -435,6 +435,22 @@ df_summary <- cbind(param = df_param_desc$param,
                     description = stringr::str_replace_all(df_param_desc$description, "\n", " "),
                     df_summary)
 
+# manually alter some parameters
+w <- which(df_summary$param == "m_AC5")
+df_summary$mean[w] <- df_summary$MAP[w] <- df_summary$Q2.5[w] <-
+  df_summary$Q50[w] <- df_summary$Q97.5[w] <- 4.85
+df_summary$var[w] <- 0
+
+w <- which(df_summary$param == "p_AI5")
+df_summary$mean[w] <- df_summary$MAP[w] <- df_summary$Q2.5[w] <-
+  df_summary$Q50[w] <- df_summary$Q97.5[w] <- 0.61
+df_summary$var[w] <- 0
+
+w <- which(df_summary$param == "p_AD5")
+df_summary$mean[w] <- df_summary$MAP[w] <- df_summary$Q2.5[w] <-
+  df_summary$Q50[w] <- df_summary$Q97.5[w] <- 0.15
+df_summary$var[w] <- 0
+
 # save results to file
 write.csv(df_summary, "ignore/output/summary_mcmc4.csv", row.names = FALSE)
 #df_summary <- read.csv("ignore/output/summary_mcmc4.csv")
@@ -443,6 +459,7 @@ write.csv(df_summary, "ignore/output/summary_mcmc4.csv", row.names = FALSE)
 #params <- df_summary$mean
 params <- df_summary$MAP
 names(params) <- df_summary$param
+
 
 # ------------------------------------------------------------------
 # Save ccdf to file
