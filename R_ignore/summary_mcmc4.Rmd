@@ -43,6 +43,7 @@ plot2 <- plot_CrI(df_summary, show = "m_AD", param_names = df_age_indlevel$indle
   ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,plot_max))
 
 # general ward to discharge
+#plot3 <- plot_CrI(df_summary, show = "m_AC", param_names = df_age_indlevel$indlevel_name) +
 plot3 <- plot_CrI(df_summary, show = sprintf("m_AC%s", df_age_indlevel$indlevel_group),
                   param_names = df_age_indlevel$indlevel_name) +
   ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,plot_max))

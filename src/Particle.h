@@ -54,6 +54,7 @@ public:
   std::vector<double> density_AI;
   std::vector<double> density_AD;
   std::vector<std::vector<double>> density_AC;
+  //std::vector<double> density_AC;
   std::vector<double> density_ID;
   std::vector<double> density_IS;
   std::vector<double> density_SC;
@@ -62,6 +63,7 @@ public:
   std::vector<double> tail_AI;
   std::vector<double> tail_AD;
   std::vector<std::vector<double>> tail_AC;
+  //std::vector<double> tail_AC;
   std::vector<double> tail_ID;
   std::vector<double> tail_IS;
   std::vector<double> tail_SC;

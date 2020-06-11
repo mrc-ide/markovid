@@ -164,7 +164,7 @@ prepare_cocin_v2 <- function(cocin) {
     
     # fix other date formats
     cols <- c("date_onset", "date_admission", "date_swab", "date_icu",
-              "date_leave_icu", "date_final_outcome")
+              "date_leave_icu", "date_final_outcome", "date_last_assess")
     for (i in seq_along(cols)) {
         cocin[,cols[i]] <- as.Date(as.character( cocin[,cols[i]] ))
     }
@@ -208,7 +208,7 @@ prepare_indlevel <- function(indlevel) {
     # record whether went via ICU
     indlevel$icu <- !is.na(indlevel$date_icu)
     
-    # get date stepped down from ICU. Assume that discharges from ITU without a
+    # get date stepped down from ICU. Assume that discharges from ICU without a
     # specified date of leaving ICU have stepdown for 0 days.
     indlevel$date_stepdown <- as.Date(NA)
     # discharged from ICU without date leaving ICU. Assume stepdown on date of final outcome
@@ -246,9 +246,10 @@ prepare_indlevel <- function(indlevel) {
     # add censoring date
     indlevel$date_censor <- as.Date(NA)
     for (i in seq_len(nrow(indlevel))) {
-        tmp <- c(indlevel$date_admission[i], indlevel$date_swab[i], indlevel$date_labtest[i],
-                 indlevel$date_icu[i], indlevel$date_leave_icu[i], indlevel$date_final_outcome[i],
-                 indlevel$date_updated[i])
+        #tmp <- c(indlevel$date_admission[i], indlevel$date_swab[i], indlevel$date_labtest[i],
+        #         indlevel$date_icu[i], indlevel$date_leave_icu[i], indlevel$date_final_outcome[i],
+        #         indlevel$date_updated[i])
+        tmp <- indlevel$date_updated[i]
         if (any(!is.na(tmp))) {
             indlevel$date_censor[i] <- max(tmp, na.rm = TRUE)
         }

@@ -38,6 +38,7 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
   m_AI <- params["m_AI"]
   m_AD <- params["m_AD"]
   m_AC <- params[sprintf("m_AC%s", 1:n_age)]
+  #m_AC <- params["m_AC"]
   m_ID <- params["m_ID"]
   m_IS <- params["m_IS"]
   m_SC <- params["m_SC"]
@@ -59,6 +60,7 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
   t_AI = rgamma(n_samp, shape = 1/s_AI^2, scale = m_AI*s_AI^2)
   t_AD = rgamma(n_samp, shape = 1/s_AD^2, scale = m_AD*s_AD^2)
   t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC[df_sim$age_group]*s_AC^2)
+  #t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC*s_AC^2)
   t_ID = rgamma(n_samp, shape = 1/s_ID^2, scale = m_ID*s_ID^2)
   t_IS = rgamma(n_samp, shape = 1/s_IS^2, scale = m_IS*s_IS^2)
   t_SC = rgamma(n_samp, shape = 1/s_SC^2, scale = m_SC*s_SC^2)
