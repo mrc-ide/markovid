@@ -34,8 +34,22 @@ public:
   std::vector<int> update_indlevel_age;
   std::vector<int> update_sitrep_age;
   
+  // age splines
+  int max_indlevel_age;
+  
+  std::vector<double> p_AI_nodex;
+  int p_AI_noden;
+  std::vector<double> p_AD_nodex;
+  int p_AD_noden;
+  std::vector<double> p_ID_nodex;
+  int p_ID_noden;
+  
+  std::vector<double> m_AC_nodex;
+  int m_AC_noden;
+  
   // individual-level data
   std::vector<int> age_group;
+  std::vector<int> age;
   std::vector<int> icu;
   std::vector<int> stepdown;
   std::vector<int> date_admission;

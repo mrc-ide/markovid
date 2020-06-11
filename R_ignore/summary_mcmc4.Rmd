@@ -26,6 +26,8 @@ df_age_sitrep <- diags$df_age_sitrep
 df_param_desc <- diags$df_param_desc
 region_names <- names(diags$region_list)
 n_region <- length(region_names)
+
+age_spline_list <- readRDS("../ignore/output/age_spline.rds")
 ```
 
 
@@ -43,10 +45,10 @@ plot2 <- plot_CrI(df_summary, show = "m_AD", param_names = df_age_indlevel$indle
   ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,plot_max))
 
 # general ward to discharge
-#plot3 <- plot_CrI(df_summary, show = "m_AC", param_names = df_age_indlevel$indlevel_name) +
-plot3 <- plot_CrI(df_summary, show = sprintf("m_AC%s", df_age_indlevel$indlevel_group),
-                  param_names = df_age_indlevel$indlevel_name) +
-  ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,plot_max))
+plot3 <- ggplot(age_spline_list$m_AC) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,20))
 
 # ICU to death
 plot4 <- plot_CrI(df_summary, show = "m_ID", param_names = df_age_indlevel$indlevel_name) +
@@ -67,34 +69,48 @@ cowplot::plot_grid(plot1, plot2, plot3, plot4, plot5, plot6, nrow = 3)
 
 ```{r, echo=FALSE, fig.width=9, fig.height=8}
 # admission to ICU
-plot1 <- plot_CrI(df_summary, show = sprintf("p_AI%s", df_age_indlevel$indlevel_group),
-                  param_names = df_age_indlevel$indlevel_name) +
+plot1 <- ggplot(age_spline_list$p_AI) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("Admission to ICU") + ggplot2::ylim(c(0,1))
 
 # general ward to death
-plot2 <- plot_CrI(df_summary, show = sprintf("p_AD%s", df_age_indlevel$indlevel_group),
-                  param_names = df_age_indlevel$indlevel_name) +
+plot2 <- ggplot(age_spline_list$p_AD) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,1))
 
 # ICU to death
-plot3 <- plot_CrI(df_summary, show = sprintf("p_ID%s", df_age_indlevel$indlevel_group),
-                  param_names = df_age_indlevel$indlevel_name) +
+plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("ICU to death") + ggplot2::ylim(c(0,1))
 
-cowplot::plot_grid(plot1, plot2, plot3, nrow = 2)
+# overall death
+plot4 <- ggplot(age_spline_list$p_OD) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "red", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("Overall prob. death") + ggplot2::ylim(c(0,1))
+
+cowplot::plot_grid(plot1, plot2, plot3, plot4, nrow = 2)
 ```
 
 ### Misc parameters
 
 ```{r, echo=FALSE, fig.width=9, fig.height=4}
-# spline points
-#plot1 <- plot_CrI(df_summary, show = df_summary$param[grep("t", df_summary$param)]) +
-#  ggplot2::ggtitle("Admissions spline y-values (logged)")
 
 # labtest
 plot1 <- plot_CrI(df_summary, show = c("m_AL"), param_names = c("admission\nto lab result")) +
   ggplot2::ggtitle("Lab result")
-print(plot1)
+
+# censoring parameters
+plot2 <- plot_CrI(df_summary, show = c("c_AD", "c_AC"), param_names = c("proportion censored")) +
+  ggplot2::ggtitle("proportion censored") + ggplot2::ylim(c(0,1))
+
+
+cowplot::plot_grid(plot1, plot2, nrow = 1)
+
+
 
 # rotate x-axis labels
 rotate_x <- ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1))

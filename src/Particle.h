@@ -36,18 +36,20 @@ public:
   std::vector<double> neg_by_day;
   std::vector<double> pos_by_day;
   
+  // vector over ages for cubic splines
+  std::vector<double> age_seq;
+  
   // transition probabilities
   std::vector<double> p_AI_node;
   std::vector<double> p_AI;
+  std::vector<double> p_AD_node;
   std::vector<double> p_AD;
+  std::vector<double> p_ID_node;
   std::vector<double> p_ID;
   
   // mean durations
-  std::vector<double> m_AD;
+  std::vector<double> m_AC_node;
   std::vector<double> m_AC;
-  std::vector<double> m_ID;
-  std::vector<double> m_IS;
-  std::vector<double> m_SC;
   
   // dynamic lookup tables for interval distributions
   std::vector<double> density_AL;
@@ -122,6 +124,8 @@ public:
   double get_logprior(std::vector<double> &theta, int theta_i);
   
   // other public methods
+  double get_delay_density(int x, double m, double s);
+  double get_delay_tail(int x, double m, double s);
   void update_gamma_density(std::vector<double> &density_vec, double m, double s);
   void update_gamma_tail(std::vector<double> &tail_vec, double m, double s);
   void phi_prop_to_theta_prop(int i);

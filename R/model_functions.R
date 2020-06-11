@@ -28,17 +28,12 @@ get_ccdf <- function(m, s) {
 
 # ------------------------------------------------------------------
 # simulate individual-level data from model, using real dates of admission and censoring
-sim_indlevel <- function(params, date_admission, date_censor, age_group,
-                             n_age, n_samp = 1e3) {
+sim_indlevel <- function(params, p_AI, p_AD, p_ID, m_AC,
+                         date_admission, date_censor, age, n_samp = 1e3) {
   
   # extract parameters
-  p_AI <- params[sprintf("p_AI%s", 1:n_age)]
-  p_AD <- params[sprintf("p_AD%s", 1:n_age)]
-  p_ID <- params[sprintf("p_ID%s", 1:n_age)]
   m_AI <- params["m_AI"]
   m_AD <- params["m_AD"]
-  m_AC <- params[sprintf("m_AC%s", 1:n_age)]
-  #m_AC <- params["m_AC"]
   m_ID <- params["m_ID"]
   m_IS <- params["m_IS"]
   m_SC <- params["m_SC"]
@@ -54,21 +49,20 @@ sim_indlevel <- function(params, date_admission, date_censor, age_group,
   s <- sample(n, n_samp, replace = TRUE)
   df_sim <- data.frame(date_admission = date_admission[s],
                        date_censor = date_censor[s],
-                       age_group = age_group[s])
+                       age = age[s])
   
   # draw interval times
   t_AI = rgamma(n_samp, shape = 1/s_AI^2, scale = m_AI*s_AI^2)
   t_AD = rgamma(n_samp, shape = 1/s_AD^2, scale = m_AD*s_AD^2)
-  t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC[df_sim$age_group]*s_AC^2)
-  #t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC*s_AC^2)
+  t_AC = rgamma(n_samp, shape = 1/s_AC^2, scale = m_AC[df_sim$age]*s_AC^2)
   t_ID = rgamma(n_samp, shape = 1/s_ID^2, scale = m_ID*s_ID^2)
   t_IS = rgamma(n_samp, shape = 1/s_IS^2, scale = m_IS*s_IS^2)
   t_SC = rgamma(n_samp, shape = 1/s_SC^2, scale = m_SC*s_SC^2)
   
   # draw progression routes
-  route_AI = as.logical(rbinom(n_samp, 1, p_AI[df_sim$age_group]))
-  route_AD = as.logical(rbinom(n_samp, 1, p_AD[df_sim$age_group]))
-  route_ID = as.logical(rbinom(n_samp, 1, p_ID[df_sim$age_group]))
+  route_AI = as.logical(rbinom(n_samp, 1, p_AI[df_sim$age]))
+  route_AD = as.logical(rbinom(n_samp, 1, p_AD[df_sim$age]))
+  route_ID = as.logical(rbinom(n_samp, 1, p_ID[df_sim$age]))
   
   w_AI <- which(route_AI)
   w_AD <- which(!route_AI & route_AD)
@@ -187,3 +181,51 @@ nested_to_long <- function(nl) {
   }, seq_along(nl), SIMPLIFY = FALSE))
   
 }
+
+# ------------------------------------------------------------------
+# get cubic spline
+cubic_spline <- function (x, y, x_pred) {
+  assert_vector_numeric(x)
+  assert_increasing(x)
+  assert_vector_numeric(y)
+  assert_same_length(x, y)
+  assert_vector_numeric(x_pred)
+  assert_increasing(x_pred)
+  assert_greq(min(x_pred), min(x))
+  assert_leq(max(x_pred), max(x))
+  n <- length(x) - 1
+  c <- l <- mu <- z <- rep(0, n + 1)
+  h <- b <- d <- alpha <- rep(NA, n)
+  for (i in 1:n) {
+    h[i] <- x[i + 1] - x[i]
+  }
+  for (i in 2:n) {
+    alpha[i] <- 3/h[i] * (y[i + 1] - y[i]) - 3/h[i - 1] * 
+      (y[i] - y[i - 1])
+  }
+  l[1] <- 1
+  for (i in 2:n) {
+    l[i] <- 2 * (x[i + 1] - x[i - 1]) - h[i - 1] * mu[i - 
+                                                        1]
+    mu[i] <- h[i]/l[i]
+    z[i] <- (alpha[i] - h[i - 1] * z[i - 1])/l[i]
+  }
+  l[n + 1] <- 1
+  for (i in n:1) {
+    c[i] <- z[i] - mu[i] * c[i + 1]
+    b[i] <- (y[i + 1] - y[i])/h[i] - h[i] * (c[i + 1] + 2 * 
+                                               c[i])/3
+    d[i] <- (c[i + 1] - c[i])/(3 * h[i])
+  }
+  s <- rep(NA, length(x_pred))
+  j <- 1
+  for (i in seq_along(x_pred)) {
+    if (x_pred[i] > x[j + 1]) {
+      j <- j + 1
+    }
+    s[i] <- y[j] + b[j] * (x_pred[i] - x[j]) + c[j] * (x_pred[i] - 
+                                                         x[j])^2 + d[j] * (x_pred[i] - x[j])^3
+  }
+  return(s)
+}
+

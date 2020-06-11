@@ -37,9 +37,23 @@ void System::load(Rcpp::List args) {
   update_indlevel_age = rcpp_to_vector_int(data_list["update_indlevel_age"]);
   update_sitrep_age = rcpp_to_vector_int(data_list["update_sitrep_age"]);
   
+  // age splines
+  max_indlevel_age = rcpp_to_int(data_list["max_indlevel_age"]);
+  
+  p_AI_nodex = rcpp_to_vector_double(data_list["p_AI_nodex"]);
+  p_AI_noden = p_AI_nodex.size();
+  p_AD_nodex = rcpp_to_vector_double(data_list["p_AD_nodex"]);
+  p_AD_noden = p_AI_nodex.size();
+  p_ID_nodex = rcpp_to_vector_double(data_list["p_ID_nodex"]);
+  p_ID_noden = p_AI_nodex.size();
+  
+  m_AC_nodex = rcpp_to_vector_double(data_list["m_AC_nodex"]);
+  m_AC_noden = m_AC_nodex.size();
+  
   // individual-level data
   Rcpp::List indlevel_list = data_list["indlevel"];
   age_group = rcpp_to_vector_int(indlevel_list["age_group"]);
+  age = rcpp_to_vector_int(indlevel_list["age"]);
   icu = rcpp_to_vector_int(indlevel_list["icu"]);
   stepdown = rcpp_to_vector_int(indlevel_list["stepdown"]);
   date_admission = rcpp_to_vector_int(indlevel_list["date_admission"]);
