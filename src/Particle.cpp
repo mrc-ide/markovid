@@ -16,9 +16,6 @@ void Particle::init(System &s) {
   // spline parameters
   node_y = vector<vector<double>>(s_ptr->n_region, vector<double>(s_ptr->n_node));
   
-  // population proportions
-  scale_rel_prop = vector<double>(s_ptr->n_age_sitrep);
-  
   // rescaling parameters
   scale_p_AI = vector<double>(s_ptr->n_region);
   scale_p_AD = vector<double>(s_ptr->n_region);
@@ -30,7 +27,7 @@ void Particle::init(System &s) {
   pos_by_day = vector<double>(s_ptr->n_spline);
   
   // vector over ages for cubic splines
-  age_seq = vector<double>(s_ptr->max_indlevel_age);
+  age_seq = vector<double>(s_ptr->max_indlevel_age + 1);
   for (unsigned int i = 0; i < age_seq.size(); ++i) {
     age_seq[i] = i;
   }
@@ -46,25 +43,6 @@ void Particle::init(System &s) {
   // mean durations
   m_AC_node = vector<double>(s_ptr->m_AC_noden);
   m_AC = vector<double>(s_ptr->max_indlevel_age + 1);
-  
-  // lookup tables for interval distributions
-  density_AL = vector<double>(s_ptr->lookup_max);
-  density_AI = vector<double>(s_ptr->lookup_max);
-  density_AD = vector<double>(s_ptr->lookup_max);
-  density_AC = vector<vector<double>>(s_ptr->n_age_indlevel, vector<double>(s_ptr->lookup_max));
-  //density_AC = vector<double>(s_ptr->lookup_max);
-  density_ID = vector<double>(s_ptr->lookup_max);
-  density_IS = vector<double>(s_ptr->lookup_max);
-  density_SC = vector<double>(s_ptr->lookup_max);
-  
-  // lookup tables for complementary cumulative density (ccdf) distributions
-  tail_AI = vector<double>(s_ptr->lookup_max);
-  tail_AD = vector<double>(s_ptr->lookup_max);
-  tail_AC = vector<vector<double>>(s_ptr->n_age_indlevel, vector<double>(s_ptr->lookup_max));
-  //tail_AC = vector<double>(s_ptr->lookup_max);
-  tail_ID = vector<double>(s_ptr->lookup_max);
-  tail_IS = vector<double>(s_ptr->lookup_max);
-  tail_SC = vector<double>(s_ptr->lookup_max);
   
   // objects for storing progression
   admission_incidence = vector<vector<vector<double>>>(s_ptr->n_region, vector<vector<double>>(s_ptr->n_age_sitrep, vector<double>(s_ptr->n_spline)));
@@ -95,7 +73,7 @@ void Particle::init(System &s) {
   
   // run through likelihood calculation once for each parameter to initialise lookup tables
   for (int i = 0; i < d; ++i) {
-    double tmp = get_loglike(theta, i, true);
+    double dummy = get_loglike(theta, i, true);
   }
   
   // proposal parameters
@@ -247,7 +225,7 @@ void Particle::update(double beta) {
       phi_prop[i] = phi[i];
       
       // reset lookup tables etc.
-      double tmp = get_loglike(theta, i, false);
+      double dummy = get_loglike(theta, i, false);
       
       // Robbins-Monro negative update (on the log scale)
       bw[i] = exp(log(bw[i]) - bw_stepsize*0.234/sqrt(bw_index[i]));
@@ -272,11 +250,6 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     for (int j = 0; j < s_ptr->n_node; ++j) {
       node_y[i][j] = theta[pi++];
     }
-  }
-  
-  // population proportions
-  for (int i = 0; i < s_ptr->n_age_sitrep; ++i) {
-    scale_rel_prop[i] = theta[pi++];
   }
   
   // transition cubic spline nodes
@@ -311,6 +284,9 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   
   // censoring parameters
   double c_AD = theta[pi++];
+  double c_AC = theta[pi++];
+  double c_ID = theta[pi++];
+  double c_IS = theta[pi++];
   
   // admission to labtest
   double m_AL = theta[pi++];
@@ -327,10 +303,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   }
   
   // get update rules
-  int update_density = s_ptr->update_density[theta_i];
   int update_region = s_ptr->update_region[theta_i];
-  int update_indlevel_age = s_ptr->update_indlevel_age[theta_i];
-  int update_sitrep_age = s_ptr->update_sitrep_age[theta_i];
   
   // initialise loglikelihood
   double ret = 0.0;
@@ -340,77 +313,41 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   
   // get cubic spline for p_AI and transform to [0,1] interval
   cubic_spline(s_ptr->p_AI_nodex, p_AI_node, age_seq, p_AI);
-  for (int i = 0; i < s_ptr->max_indlevel_age; ++i) {
+  for (unsigned int i = 0; i < p_AI.size(); ++i) {
     p_AI[i] = 1.0 / (1.0 + exp(-p_AI[i]));
   }
   
   // get cubic spline for p_AD and transform to [0,1] interval
   cubic_spline(s_ptr->p_AD_nodex, p_AD_node, age_seq, p_AD);
-  for (int i = 0; i < s_ptr->max_indlevel_age; ++i) {
+  for (unsigned int i = 0; i < p_AD.size(); ++i) {
     p_AD[i] = 1.0 / (1.0 + exp(-p_AD[i]));
   }
   
   // get cubic spline for p_ID and transform to [0,1] interval
   cubic_spline(s_ptr->p_ID_nodex, p_ID_node, age_seq, p_ID);
-  for (int i = 0; i < s_ptr->max_indlevel_age; ++i) {
+  for (unsigned int i = 0; i < p_ID.size(); ++i) {
     p_ID[i] = 1.0 / (1.0 + exp(-p_ID[i]));
   }
   
   // get cubic spline for m_AC and transform to [0,1] interval
   cubic_spline(s_ptr->m_AC_nodex, m_AC_node, age_seq, m_AC);
-  for (int i = 0; i < s_ptr->max_indlevel_age; ++i) {
+  for (unsigned int i = 0; i < m_AC.size(); ++i) {
     m_AC[i] = 20.0 / (1.0 + exp(-m_AC[i]));
   }
   
   // ----------------------------------------------------------------
-  // update density lookup tables
-  
-  if (update_density == 1) {
-    update_gamma_density(density_AI, m_AI, s_AI);
-    update_gamma_tail(tail_AI, m_AI, s_AI);
-  }
-  if (update_density == 2) {
-    update_gamma_density(density_AD, m_AD, s_AD);
-    update_gamma_tail(tail_AD, m_AD, s_AD);
-  }
-  if (update_density == 3) {
-    if (update_indlevel_age == 0) {
-      for (int i = 0; i < s_ptr->n_age_indlevel; ++i) {
-        update_gamma_density(density_AC[i], m_AC[i], s_AC);
-        update_gamma_tail(tail_AC[i], m_AC[i], s_AC);
-      }
-    } else {
-      int i = update_indlevel_age - 1;
-      update_gamma_density(density_AC[i], m_AC[i], s_AC);
-      update_gamma_tail(tail_AC[i], m_AC[i], s_AC);
-    }
-  }
-  if (update_density == 4) {
-    update_gamma_density(density_ID, m_ID, s_ID);
-    update_gamma_tail(tail_ID, m_ID, s_ID);
-  }
-  if (update_density == 5) {
-    update_gamma_density(density_IS, m_IS, s_IS);
-    update_gamma_tail(tail_IS, m_IS, s_IS);
-  }
-  if (update_density == 6) {
-    update_gamma_density(density_SC, m_SC, s_SC);
-    update_gamma_tail(tail_SC, m_SC, s_SC);
-  }
-  
-  // ----------------------------------------------------------------
-  // update progression objects
+  // update objects used when calculating sitrep likelihood
   
   // calculate lab test weights
-  update_gamma_density(pos_on_day, m_AL, 1.0);
-  update_gamma_tail(neg_by_day, m_AL, 1.0);
   for (unsigned int i = 0; i < neg_by_day.size(); ++i) {
+    pos_on_day[i] = get_delay_density(i, m_AL, 1.0);
+    neg_by_day[i] = get_delay_tail(i, m_AL, 1.0);
     pos_by_day[i] = 1.0 - neg_by_day[i];
   }
   
   // loop through sitrep regions
   for (int region_i = 0; region_i < s_ptr->n_region; ++region_i) {
-    continue;
+    //continue;
     
     // skip based on update rules
     if (update_region != (region_i + 1) && update_region != 0) {
@@ -437,106 +374,116 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         node_j++;
       }
     }
+    for (int i = 1; i < s_ptr->n_spline; ++i) {
+      admissions_spline[i] = exp(admissions_spline[i]);
+    }
     
     // loop through sitrep age groups
-    for (int age_i = 0; age_i < s_ptr->n_age_sitrep; ++age_i) {
-      
-      // skip based on update rules
-      if (update_sitrep_age != (age_i + 1) && update_sitrep_age != 0) {
-        continue;
-      }
+    for (int age_sitrep = 0; age_sitrep < s_ptr->n_age_sitrep; ++age_sitrep) {
       
       // reset progression objects
-      fill(admission_incidence[region_i][age_i].begin(), admission_incidence[region_i][age_i].end(), 0.0);
-      fill(deaths_incidence[region_i][age_i].begin(), deaths_incidence[region_i][age_i].end(), 0.0);
-      fill(discharges_incidence[region_i][age_i].begin(), discharges_incidence[region_i][age_i].end(), 0.0);
-      fill(general_prevalence[region_i][age_i].begin(), general_prevalence[region_i][age_i].end(), 0.0);
-      fill(critical_prevalence[region_i][age_i].begin(), critical_prevalence[region_i][age_i].end(), 0.0);
+      fill(admission_incidence[region_i][age_sitrep].begin(), admission_incidence[region_i][age_sitrep].end(), 0.0);
+      fill(deaths_incidence[region_i][age_sitrep].begin(), deaths_incidence[region_i][age_sitrep].end(), 0.0);
+      fill(discharges_incidence[region_i][age_sitrep].begin(), discharges_incidence[region_i][age_sitrep].end(), 0.0);
+      fill(general_prevalence[region_i][age_sitrep].begin(), general_prevalence[region_i][age_sitrep].end(), 0.0);
+      fill(critical_prevalence[region_i][age_sitrep].begin(), critical_prevalence[region_i][age_sitrep].end(), 0.0);
       
-      // loop through individual-level age groups within this sitrep age group
-      for (unsigned int age_j = 0; age_j < s_ptr->map_age_sitrep[age_i].size(); ++age_j) {
+      fill(delta_stepup.begin(), delta_stepup.end(), 0.0);
+      fill(delta_stepdown.begin(), delta_stepdown.end(), 0.0);
+      fill(delta_deaths_general.begin(), delta_deaths_general.end(), 0.0);
+      fill(delta_discharges_general.begin(), delta_discharges_general.end(), 0.0);
+      fill(delta_open_general.begin(), delta_open_general.end(), 0.0);
+      fill(delta_deaths_critical.begin(), delta_deaths_critical.end(), 0.0);
+      fill(delta_open_critical.begin(), delta_open_critical.end(), 0.0);
+      
+      // loop through all integer ages inside this sitrep age group
+      for (unsigned int j = 0; j < s_ptr->age_weights[age_sitrep].size(); ++j) {
         
-        // get individual-level age group
-        int age_indlevel = s_ptr->map_age_sitrep[age_i][age_j] - 1;
+        // get integer age
+        int age = s_ptr->age_values[age_sitrep][j];
+        double weight = s_ptr->age_weights[age_sitrep][j];
         
-        // get parameters specific to this age group
-        double p_AI_i = p_AI[age_indlevel] * scale_p_AI[region_i];
-        double p_AD_i = p_AD[age_indlevel] * scale_p_AD[region_i];
-        double p_ID_i = p_ID[age_indlevel] * scale_p_ID[region_i];
+        // get age-specific parameters
+        double p_AI_j = p_AI[age] * scale_p_AI[region_i];
+        double p_AD_j = p_AD[age] * scale_p_AD[region_i];
+        double p_ID_j = p_ID[age];// * scale_p_ID[region_i];
+        double m_AC_j = m_AC[age];
         
-        // probabilities cannot exceed 1.0
-        if (p_AI_i > 1.0 || p_AD_i > 1.0 || p_ID_i > 1.0) {
-          ret = -std::numeric_limits<double>::infinity();
+        // check scaling doesn't push probabilities above 1
+        if (p_AI_j > 1.0 || p_AD_j > 1.0 || p_ID_j > 1.0) {
+          return -DBL_MAX/100.0;
         }
-        
-        // store incidence in stepup and stepdown care
-        std::vector<double> stepup(s_ptr->n_spline);
-        std::vector<double> stepdown(s_ptr->n_spline);
         
         // calculate unscaled progression vectors
         for (int i = 0; i < s_ptr->n_spline; ++i) {
-          delta_stepup[i] = p_AI_i * density_AI[i];
-          delta_stepdown[i] = (1 - p_ID_i) * density_IS[i];
-          delta_deaths_general[i] = (1 - p_AI_i) * p_AD_i * density_AD[i];
-          delta_discharges_general[i] =  (1 - p_AI_i) * (1 - p_AD_i) * density_AC[age_indlevel][i];
-          delta_open_general[i] =  (1 - p_AI_i) * p_AD_i * tail_AD[i] +
-                                   (1 - p_AI_i) * (1 - p_AD_i) * tail_AC[age_indlevel][i] +
-                                    p_AI_i * tail_AI[i];
-          delta_deaths_critical[i] = p_ID_i * density_ID[i];
-          delta_open_critical[i] =  p_ID_i * tail_ID[i] +
-                                    (1 - p_ID_i) * tail_IS[i];
+          delta_stepup[i] += weight * p_AI_j * get_delay_density(i, m_AI, s_AI);
+          delta_stepdown[i] += weight * (1 - p_ID_j) * get_delay_density(i, m_IS, s_IS);
+          
+          delta_deaths_general[i] += weight * (1 - p_AI_j) * p_AD_j * get_delay_density(i, m_AD, s_AD);
+          delta_discharges_general[i] +=  weight * (1 - p_AI_j) * (1 - p_AD_j) * get_delay_density(i, m_AC_j, s_AC);
+          delta_open_general[i] +=  weight * ( (1 - p_AI_j) * p_AD_j * get_delay_tail(i, m_AD, s_AD) +
+                                               (1 - p_AI_j) * (1 - p_AD_j) * get_delay_tail(i, m_AC_j, s_AC) +
+                                                p_AI_j * get_delay_tail(i, m_AI, s_AI) );
+          delta_deaths_critical[i] += weight * p_ID_j * get_delay_density(i, m_ID, s_ID);
+          delta_open_critical[i] +=  weight * ( p_ID_j * get_delay_tail(i, m_ID, s_ID) +
+                                                (1 - p_ID_j) * get_delay_tail(i, m_IS, s_IS) );
         }
         
-        // loop through each spline day in turn
-        for (int i = 0; i < s_ptr->n_spline; ++i) {
-          
-          // get true admissions on this day from spline
-          double true_admissions = scale_rel_prop[age_i] * s_ptr->rel_prop[age_indlevel] * exp(admissions_spline[i]);
-          
-          // project true admissions out over future days
-          for (int j = i; j < s_ptr->n_spline; ++j) {
-            
-            // update incidence in stepup and stepdown
-            stepup[j] += true_admissions * delta_stepup[j - i];
-            stepdown[j] += stepup[i] * delta_stepdown[j - i];
-            
-            // deaths, discharges and open cases in general ward
-            double deaths_general = true_admissions * delta_deaths_general[j - i];
-            double discharges_general = true_admissions * delta_discharges_general[j - i];
-            double open_general = true_admissions * delta_open_general[j - i];
-            
-            // deaths and open cases in critical care
-            double deaths_critical = stepup[i] * delta_deaths_critical[j - i];
-            double open_critical = stepup[i] * delta_open_critical[j - i];
-            
-            // discharges and open cases in stepdown
-            double discharges_stepdown = stepdown[i] * density_SC[j - i];
-            double open_stepdown = stepdown[i] * tail_SC[j - i];
-            
-            // delay from admission to testing
-            double pos_by_day_j = pos_by_day[j - i];
-            double pos_on_day_j = pos_on_day[j - i];
-            
-            // incidence of observed admission
-            admission_incidence[region_i][age_i][j] += pos_on_day_j * (open_general + open_critical + open_stepdown);
-            
-            // incidence of death and discharge
-            deaths_incidence[region_i][age_i][j] += pos_by_day_j * (deaths_general + deaths_critical);
-            discharges_incidence[region_i][age_i][j] += pos_by_day_j * (discharges_general + discharges_stepdown);
-            
-            // prevalence in general and critical beds
-            general_prevalence[region_i][age_i][j] += pos_by_day_j * (open_general + open_stepdown);
-            critical_prevalence[region_i][age_i][j] += pos_by_day_j * open_critical;
-            
-          }  // end j loop over days
-          
-        }  // end i loop over days
-        
-      }  // end age_j loop
+      }  // end j loop
       
-    }  // end age_i loop
+      // store incidence in stepup and stepdown care
+      vector<double> stepup(s_ptr->n_spline);
+      vector<double> stepdown(s_ptr->n_spline);
+      
+      // loop through each spline day in turn
+      for (int i = 0; i < s_ptr->n_spline; ++i) {
+        
+        // get true admissions on this day from spline
+        double true_admissions = admissions_spline[i];
+        
+        // project true admissions out over future days
+        for (int j = i; j < s_ptr->n_spline; ++j) {
+          
+          // update incidence in stepup and stepdown
+          stepup[j] += true_admissions * delta_stepup[j - i];
+          stepdown[j] += stepup[i] * delta_stepdown[j - i];
+          
+          // deaths, discharges and open cases in general ward
+          double deaths_general = true_admissions * delta_deaths_general[j - i];
+          double discharges_general = true_admissions * delta_discharges_general[j - i];
+          double open_general = true_admissions * delta_open_general[j - i];
+          
+          // deaths and open cases in critical care
+          double deaths_critical = stepup[i] * delta_deaths_critical[j - i];
+          double open_critical = stepup[i] * delta_open_critical[j - i];
+          
+          // discharges and open cases in stepdown
+          double discharges_stepdown = stepdown[i] * get_delay_density(j - i, m_SC, s_SC);
+          double open_stepdown = stepdown[i] * get_delay_tail(j - i, m_SC, s_SC);
+          
+          // delay from admission to testing
+          double pos_by_day_j = pos_by_day[j - i];
+          double pos_on_day_j = pos_on_day[j - i];
+          
+          // incidence of observed admission
+          admission_incidence[region_i][age_sitrep][j] += pos_on_day_j * (open_general + open_critical + open_stepdown);
+          
+          // incidence of death and discharge
+          deaths_incidence[region_i][age_sitrep][j] += pos_by_day_j * (deaths_general + deaths_critical);
+          discharges_incidence[region_i][age_sitrep][j] += pos_by_day_j * (discharges_general + discharges_stepdown);
+          
+          // prevalence in general and critical beds
+          general_prevalence[region_i][age_sitrep][j] += pos_by_day_j * (open_general + open_stepdown);
+          critical_prevalence[region_i][age_sitrep][j] += pos_by_day_j * open_critical;
+          
+        }  // end j loop through spline days
+        
+      }  // end i loop through spline days
+      
+    }  // end age_sitrep loop
     
   }  // end region_i loop
+  
   
   // option to return at this stage
   if (quick_exit) {
@@ -558,7 +505,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     double q_AD = p_AD[age_i];
     double q_ID = p_ID[age_i];
     
-    // non-icu pathway
+    // if no recorded ICU stay
     if (s_ptr->icu[i] == 0) {
       
       // admission to death
@@ -570,21 +517,22 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
       // admission to discharge
       if (s_ptr->final_outcome[i] == 2) {
         int delta = s_ptr->date_final_outcome[i] - s_ptr->date_admission[i];
-        ret += log( (1.0 - q_AI) * (1.0 - q_AD) * (1 - c_AD) * get_delay_density(delta, m_AC[age_i], s_AC) );
+        ret += log( (1.0 - q_AI) * (1.0 - q_AD) * (1 - c_AC) * get_delay_density(delta, m_AC[age_i], s_AC) );
       }
       
       // open case in general ward
       if (s_ptr->final_outcome[i] == -1) {
         int delta = s_ptr->date_censor[i] - s_ptr->date_admission[i];
         ret += log( (1.0 - q_AI) * q_AD * (c_AD + (1 - c_AD) * get_delay_tail(delta, m_AD, s_AD)) +
-                    (1.0 - q_AI) * (1.0 - q_AD) * (c_AD + (1 - c_AD) * get_delay_tail(delta, m_AC[age_i], s_AC)) +
-                    q_AI * tail_AI[delta] );
+                    (1.0 - q_AI) * (1.0 - q_AD) * (c_AC + (1 - c_AC) * get_delay_tail(delta, m_AC[age_i], s_AC)) +
+                    q_AI * get_delay_tail(delta, m_AI, s_AI) );
       }
       
-    }  // end non-icu pathway
+    }
     
-    // icu pathway
+    // if recorded ICU stay
     if (s_ptr->icu[i] == 1) {
+      //continue;
       
       // admission to icu
       {
@@ -592,43 +540,45 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         ret += log( q_AI * get_delay_density(delta, m_AI, s_AI) );
       }
       
-      // non-stepdown pathway
+      //continue;
+      
+      // if no recorded stepdown stay
       if (s_ptr->stepdown[i] == 0) {
         
         // icu to death
         if (s_ptr->final_outcome[i] == 1) {
           int delta = s_ptr->date_final_outcome[i] - s_ptr->date_icu[i];
-          ret += log( q_AI * q_ID * (1 - c_AD) * get_delay_density(delta, m_ID, s_ID) );
+          ret += log( q_ID * (1 - c_ID) * get_delay_density(delta, m_ID, s_ID) );
         }
         
         // open case in icu
         if (s_ptr->final_outcome[i] == -1) {
           int delta = s_ptr->date_censor[i] - s_ptr->date_icu[i];
-          ret += log( q_AI * q_ID * (c_AD + (1 - c_AD) * get_delay_tail(delta, m_ID, s_ID)) +
-                      q_AI * (1.0 - q_ID) * (c_AD + (1 - c_AD) * get_delay_tail(delta, m_IS, s_IS)) );
+          ret += log( q_ID * (c_ID + (1 - c_ID) * get_delay_tail(delta, m_ID, s_ID)) +
+                      (1.0 - q_ID) * (c_IS + (1 - c_IS) * get_delay_tail(delta, m_IS, s_IS)) );
         }
         
-      }  // end non-stepdown pathway
+      }
       
-      // stepdown pathway
+      // if recorded stepdown stay
       if (s_ptr->stepdown[i] == 1) {
         
         // icu to stepdown
         {
           int delta = s_ptr->date_stepdown[i] - s_ptr->date_icu[i];
-          ret += log( q_AI * (1.0 - q_ID) * (1 - c_AD) * get_delay_density(delta, m_IS, s_IS) );
+          ret += log( (1.0 - q_ID) * (1 - c_IS) * get_delay_density(delta, m_IS, s_IS) );
         }
         
         // stepdown to discharge
         if (s_ptr->final_outcome[i] == 2) {
           int delta = s_ptr->date_final_outcome[i] - s_ptr->date_stepdown[i];
-          ret += log( q_AI * (1.0 - q_ID) * get_delay_density(delta, m_SC, s_SC) );
+          ret += log( get_delay_density(delta, m_SC, s_SC) );
         }
         
         // open case in stepdown
         if (s_ptr->final_outcome[i] == -1) {
           int delta = s_ptr->date_censor[i] - s_ptr->date_stepdown[i];
-          ret += log( q_AI * (1.0 - q_ID) * get_delay_tail(delta, m_SC, s_SC) );
+          ret += log( get_delay_tail(delta, m_SC, s_SC) );
         }
         
       }  // end stepdown pathway
@@ -645,7 +595,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   
   // loop through regions
   for (int region_i = 0; region_i < s_ptr->n_region; ++region_i) {
-    continue;
+    //continue;
     
     // loop through sitrep age groups
     for (int age_i = 0; age_i < s_ptr->n_age_sitrep; ++age_i) {
@@ -667,28 +617,28 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         
         // new deaths
         if (s_ptr->new_deaths[region_i][age_i][i] != -1) {
-          //ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], deaths_incidence[region_i][age_i][j], true);
+          ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], deaths_incidence[region_i][age_i][j], true);
           //double p = k / (k + deaths_incidence[region_i][age_i][j]);
           //ret += R::dnbinom(s_ptr->new_deaths[region_i][age_i][i], k, p, true);
         }
         
         // new discharges
         if (s_ptr->new_discharges[region_i][age_i][i] != -1) {
-          //ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], discharges_incidence[region_i][age_i][j], true);
+          ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], discharges_incidence[region_i][age_i][j], true);
           //double p = k / (k + discharges_incidence[region_i][age_i][j]);
           //ret += R::dnbinom(s_ptr->new_discharges[region_i][age_i][i], k, p, true);
         }
         
         // prevalence in general beds
         if (s_ptr->total_general[region_i][age_i][i] != -1) {
-          //ret += R::dpois(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][j], true);
+          ret += R::dpois(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][j], true);
           //double p = k / (k + general_prevalence[region_i][age_i][j]);
           //ret += R::dnbinom(s_ptr->total_general[region_i][age_i][i], k, p, true);
         }
         
         // prevalence in critical beds
         if (s_ptr->total_critical[region_i][age_i][i] != -1) {
-          //ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], critical_prevalence[region_i][age_i][j], true);
+          ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], critical_prevalence[region_i][age_i][j], true);
           //double p = k / (k + critical_prevalence[region_i][age_i][j]);
           //ret += R::dnbinom(s_ptr->total_critical[region_i][age_i][i], k, p, true);
         }
@@ -706,6 +656,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   
   // catch underflow
   if (!std::isfinite(ret)) {
+    //print("catch");
     ret = -DBL_MAX/100.0;
   }
   
@@ -749,55 +700,3 @@ double Particle::get_delay_tail(int x, double m, double s) {
   return ret;
 }
 
-//------------------------------------------------
-void Particle::update_gamma_density(vector<double> &density_vec, double m, double s) {
-  bool use_lookup = false;
-  if (use_lookup) {
-    
-    double m_index = floor(m * 100);
-    double s_index = floor(s * 100);
-    if (m_index >= s_ptr->gamma_density_lookup.size()) {
-      print(m, m_index);
-      Rcpp::stop("m outside gamma_density_lookup range");
-    }
-    if (s_index >= s_ptr->gamma_density_lookup[m_index].size()) {
-      print(s, s_index);
-      Rcpp::stop("s outside gamma_density_lookup range");
-    }
-    density_vec = s_ptr->gamma_density_lookup[m_index][s_index];
-    
-  } else {
-    
-    for (unsigned int j = 0; j < density_vec.size(); ++j) {
-      density_vec[j] = R::pgamma(j + 1, 1.0/(s*s), m*s*s, true, false) -
-                       R::pgamma(j, 1.0/(s*s), m*s*s, true, false) + UNDERFLO_DOUBLE;
-    }
-    
-  }
-}
-
-//------------------------------------------------
-void Particle::update_gamma_tail(vector<double> &tail_vec, double m, double s) {
-  bool use_lookup = false;
-  if (use_lookup) {
-    
-    double m_index = floor(m * 100);
-    double s_index = floor(s * 100);
-    if (m_index >= s_ptr->gamma_tail_lookup.size()) {
-      print(m, m_index);
-      Rcpp::stop("m outside gamma_tail_lookup range");
-    }
-    if (s_index >= s_ptr->gamma_tail_lookup[m_index].size()) {
-      print(s, s_index);
-      Rcpp::stop("s outside gamma_tail_lookup range");
-    }
-    tail_vec = s_ptr->gamma_tail_lookup[m_index][s_index];
-    
-  } else {
-    
-    for (unsigned int j = 0; j < tail_vec.size(); ++j) {
-      tail_vec[j] = R::pgamma(j + 1, 1.0/(s*s), m*s*s, false, false) + UNDERFLO_DOUBLE;
-    }
-    
-  }
-}

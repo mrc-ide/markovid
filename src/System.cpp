@@ -19,27 +19,23 @@ void System::load(Rcpp::List args) {
   Rcpp::List data_list = args_params["data_list"];
   
   // misc data
-  n_region = rcpp_to_int(data_list["n_region"]);
   node_x = rcpp_to_vector_int(data_list["node_x"]);
   n_node = node_x.size();
   n_spline = node_x[n_node - 1] - node_x[0] + 1;
   lookup_max = rcpp_to_int(data_list["lookup_max"]);
-  n_date_sitrep = rcpp_to_int(data_list["n_date_sitrep"]);
+  n_region = rcpp_to_int(data_list["n_region"]);
   n_age_sitrep = rcpp_to_int(data_list["n_age_sitrep"]);
-  n_age_indlevel = rcpp_to_int(data_list["n_age_indlevel"]);
-  rel_prop = rcpp_to_vector_double(data_list["rel_prop"]);
-  map_age_indlevel = rcpp_to_vector_int(data_list["map_age_indlevel"]);
-  map_age_sitrep = rcpp_to_matrix_int(data_list["map_age_sitrep"]);
-  
-  // update rules
-  update_density = rcpp_to_vector_int(data_list["update_density"]);
-  update_region = rcpp_to_vector_int(data_list["update_region"]);
-  update_indlevel_age = rcpp_to_vector_int(data_list["update_indlevel_age"]);
-  update_sitrep_age = rcpp_to_vector_int(data_list["update_sitrep_age"]);
-  
-  // age splines
+  n_date_sitrep = rcpp_to_int(data_list["n_date_sitrep"]);
   max_indlevel_age = rcpp_to_int(data_list["max_indlevel_age"]);
   
+  // age weights
+  age_weights = rcpp_to_matrix_double(data_list["age_weights"]);
+  age_values = rcpp_to_matrix_int(data_list["age_values"]);
+  
+  // update rules
+  update_region = rcpp_to_vector_int(data_list["update_region"]);
+  
+  // age splines
   p_AI_nodex = rcpp_to_vector_double(data_list["p_AI_nodex"]);
   p_AI_noden = p_AI_nodex.size();
   p_AD_nodex = rcpp_to_vector_double(data_list["p_AD_nodex"]);
@@ -52,7 +48,6 @@ void System::load(Rcpp::List args) {
   
   // individual-level data
   Rcpp::List indlevel_list = data_list["indlevel"];
-  age_group = rcpp_to_vector_int(indlevel_list["age_group"]);
   age = rcpp_to_vector_int(indlevel_list["age"]);
   icu = rcpp_to_vector_int(indlevel_list["icu"]);
   stepdown = rcpp_to_vector_int(indlevel_list["stepdown"]);
@@ -62,16 +57,17 @@ void System::load(Rcpp::List args) {
   date_final_outcome = rcpp_to_vector_int(indlevel_list["date_final_outcome"]);
   final_outcome = rcpp_to_vector_int(indlevel_list["final_outcome_numeric"]);
   date_censor = rcpp_to_vector_int(indlevel_list["date_censor"]);
-  n_ind = age_group.size();
+  n_ind = age.size();
   
   // sitrep data
+  Rcpp::List sitrep_list = data_list["sitrep"];
+  daily_influx = vector<vector<vector<int>>>(n_region);
   daily_influx = vector<vector<vector<int>>>(n_region, vector<vector<int>>(n_age_sitrep));
   new_deaths = vector<vector<vector<int>>>(n_region, vector<vector<int>>(n_age_sitrep, vector<int>(n_date_sitrep)));
   new_discharges = vector<vector<vector<int>>>(n_region, vector<vector<int>>(n_age_sitrep, vector<int>(n_date_sitrep)));
   total_general = vector<vector<vector<int>>>(n_region, vector<vector<int>>(n_age_sitrep, vector<int>(n_date_sitrep)));
   total_critical = vector<vector<vector<int>>>(n_region, vector<vector<int>>(n_age_sitrep, vector<int>(n_date_sitrep)));
   
-  Rcpp::List sitrep_list = data_list["sitrep"];
   for (int i = 0; i < n_region; ++i) {
     Rcpp::List sitrep_i = sitrep_list[i];
     for (int j = 0; j < n_age_sitrep; ++j) {

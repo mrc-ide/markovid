@@ -16,27 +16,23 @@ public:
   bool return_fit;
   
   // misc data
-  int n_region;
   std::vector<int> node_x;
   int n_node;
   int n_spline;
   int lookup_max;
-  int n_date_sitrep;
+  int n_region;
   int n_age_sitrep;
-  int n_age_indlevel;
-  std::vector<double> rel_prop;
-  std::vector<int> map_age_indlevel;
-  std::vector<std::vector<int>> map_age_sitrep;
-  
-  // update rules
-  std::vector<int> update_density;
-  std::vector<int> update_region;
-  std::vector<int> update_indlevel_age;
-  std::vector<int> update_sitrep_age;
-  
-  // age splines
+  int n_date_sitrep;
   int max_indlevel_age;
   
+  // age weights
+  std::vector< std::vector<double> > age_weights;
+  std::vector< std::vector<int> > age_values;
+  
+  // update rules
+  std::vector<int> update_region;
+  
+  // age splines
   std::vector<double> p_AI_nodex;
   int p_AI_noden;
   std::vector<double> p_AD_nodex;
@@ -48,7 +44,6 @@ public:
   int m_AC_noden;
   
   // individual-level data
-  std::vector<int> age_group;
   std::vector<int> age;
   std::vector<int> icu;
   std::vector<int> stepdown;

@@ -28,6 +28,8 @@ region_names <- names(diags$region_list)
 n_region <- length(region_names)
 
 age_spline_list <- readRDS("../ignore/output/age_spline.rds")
+
+data_quantiles_list <- readRDS("../ignore/output/data_quantiles.rds")
 ```
 
 
@@ -49,6 +51,9 @@ plot3 <- ggplot(age_spline_list$m_AC) + theme_bw() +
   geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,20))
+
+plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = data_quantiles_list$m_AC)
 
 # ICU to death
 plot4 <- plot_CrI(df_summary, show = "m_ID", param_names = df_age_indlevel$indlevel_name) +
@@ -74,11 +79,17 @@ plot1 <- ggplot(age_spline_list$p_AI) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("Admission to ICU") + ggplot2::ylim(c(0,1))
 
+plot1 <- plot1 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = data_quantiles_list$p_AI)
+
 # general ward to death
 plot2 <- ggplot(age_spline_list$p_AD) + theme_bw() +
   geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,1))
+
+plot2 <- plot2 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = data_quantiles_list$p_AD)
 
 # ICU to death
 plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
@@ -86,11 +97,17 @@ plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("ICU to death") + ggplot2::ylim(c(0,1))
 
+plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = data_quantiles_list$p_ID)
+
 # overall death
 plot4 <- ggplot(age_spline_list$p_OD) + theme_bw() +
   geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "red", alpha = 0.5) +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("Overall prob. death") + ggplot2::ylim(c(0,1))
+
+plot4 <- plot4 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = data_quantiles_list$p_OD)
 
 cowplot::plot_grid(plot1, plot2, plot3, plot4, nrow = 2)
 ```
@@ -104,7 +121,7 @@ plot1 <- plot_CrI(df_summary, show = c("m_AL"), param_names = c("admission\nto l
   ggplot2::ggtitle("Lab result")
 
 # censoring parameters
-plot2 <- plot_CrI(df_summary, show = c("c_AD", "c_AC"), param_names = c("proportion censored")) +
+plot2 <- plot_CrI(df_summary, show = c("c_AD", "c_AC", "c_ID", "c_IS")) +
   ggplot2::ggtitle("proportion censored") + ggplot2::ylim(c(0,1))
 
 
@@ -118,15 +135,15 @@ rotate_x <- ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust
 # scaling parameters
 plot1 <- plot_CrI(df_summary, show = sprintf("scale_p_AI%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_AI") + ggplot2::ylim(c(0,5)) + rotate_x
+  ggplot2::ggtitle("Scale p_AI") + ggplot2::ylim(c(0,10)) + rotate_x
 
 plot2 <- plot_CrI(df_summary, show = sprintf("scale_p_AD%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_AD") + ggplot2::ylim(c(0,5)) + rotate_x
+  ggplot2::ggtitle("Scale p_AD") + ggplot2::ylim(c(0,10)) + rotate_x
 
 plot3 <- plot_CrI(df_summary, show = sprintf("scale_p_ID%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_ID") + ggplot2::ylim(c(0,5)) + rotate_x
+  ggplot2::ggtitle("Scale p_ID") + ggplot2::ylim(c(0,10)) + rotate_x
 
 #print(plot1, plot2, plot3)
 cowplot::plot_grid(plot1, plot2, plot3, nrow = 1)

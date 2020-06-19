@@ -26,6 +26,7 @@
 #library(drjacoby)
 
 library(ggplot2)
+library(epitools)
 
 set.seed(1)
 
@@ -55,7 +56,7 @@ region_names <- c("east of england", "london", "midlands",
 region_list <- as.list(region_names)
 names(region_list) <- region_list
 
-region_list <- list("all England" = region_names)
+#region_list <- list("all England" = region_names)
 
 # subset regions
 indlevel$region <- as.character(indlevel$region)
@@ -71,6 +72,7 @@ indlevel <- subset(indlevel, date_admission >= as.Date("2020-03-09") &
 
 # set censoring time manually
 indlevel$date_censor <- as.Date("2020-06-01")
+#indlevel$date_censor <- as.Date("2021-06-01")
 indlevel <- subset(indlevel, date_admission <= date_censor &
                      (is.na(date_icu) | date_icu <= date_censor) &
                      (is.na(date_leave_icu) | date_leave_icu <= date_censor) &
@@ -83,58 +85,26 @@ indlevel <- subset(indlevel, !is.na(age) & age > 0)
 # make age integer
 indlevel$age <- floor(indlevel$age)
 
-# ------------------------------------------------------------------
-# Define stratification
+# make dates numeric
+for (i in c("date_admission", "date_labtest", "date_icu", "date_leave_icu",
+            "date_stepdown", "date_final_outcome", "date_censor")) {
+  indlevel[[i]] <- as.numeric(indlevel[[i]] - as.Date("2020-03-09"))
+}
 
-# define sitrep age grouping
-sitrep_lower = c(0, 6, 18, 65, 85)
-sitrep_upper = c(sitrep_lower[-1] - 1, Inf)
-sitrep_name <- paste(sitrep_lower, sitrep_upper, sep = "-")
-sitrep_name[length(sitrep_name)] <- sprintf("%s+", sitrep_lower[length(sitrep_name)])
-n_age_sitrep <- length(sitrep_lower)
+# get numeric outcome
+indlevel$final_outcome_numeric <- as.numeric(indlevel$final_outcome)
 
-df_age_sitrep <- data.frame(sitrep_group = seq_along(sitrep_lower),
-                            sitrep_lower = sitrep_lower,
-                            sitrep_upper = sitrep_upper,
-                            sitrep_name = sitrep_name,
-                            stringsAsFactors = FALSE)
-
-# define individual-level age grouping
-indlevel_lower <- c(0, 6, 18, seq(45, 85, 5))
-#indlevel_lower <- seq(0, 85, 5)
-#indlevel_lower <- c(0, 6, 18, 65, 70, 85)
-#indlevel_lower <- c(0, 6, 18, 65, 85)
-indlevel_upper <- c(indlevel_lower[-1] - 1, Inf)
-indlevel_name <- paste(indlevel_lower, indlevel_upper, sep = "-")
-indlevel_name[length(indlevel_name)] <- sprintf("%s+", indlevel_lower[length(indlevel_name)])
-n_age_indlevel <- length(indlevel_lower)
-
-df_age_indlevel <- data.frame(indlevel_group = seq_along(indlevel_lower),
-                              indlevel_lower = indlevel_lower,
-                              indlevel_upper = indlevel_upper,
-                              indlevel_name = indlevel_name,
-                              stringsAsFactors = FALSE)
-
-# add age groups to individual-level line list
-indlevel$age_group <- as.numeric(cut(indlevel$age,
-                                     breaks = c(df_age_indlevel$indlevel_lower, Inf),
-                                     right = FALSE))
-
-# get expected proportions from individual-level line list
-tab1 <- table(indlevel$age_group)
-df_age_indlevel$prop <- as.vector(tab1 / sum(tab1))
-
-# convert to proportions relative to oldest age group
-df_age_indlevel$rel_prop <- df_age_indlevel$prop / df_age_indlevel$prop[n_age_indlevel]
-
-# map sitrep groups to indlevel groups
-age_cut <- as.numeric(cut(df_age_indlevel$indlevel_lower,
-                          breaks = c(df_age_sitrep$sitrep_lower, Inf),
-                          right = FALSE))
-df_age_indlevel$sitrep_group = age_cut
-
-# map indlevel groups to sitrep groups
-df_age_sitrep$indlevel_group <- split(1:n_age_indlevel, f = age_cut)
+# subset to list of values to pass into MCMC
+indlevel_list <- as.list(subset(indlevel, select = c(age,
+                                                     icu,
+                                                     stepdown,
+                                                     date_admission,
+                                                     date_labtest,
+                                                     date_icu,
+                                                     date_stepdown,
+                                                     date_final_outcome,
+                                                     final_outcome_numeric,
+                                                     date_censor)))
 
 
 # ------------------------------------------------------------------
@@ -196,32 +166,28 @@ for (i in seq_along(region_list)) {
   }
 }
 
-
 # ------------------------------------------------------------------
-# Finalise individual-level data
+# Define age weights
 
-# make dates numeric
-for (i in c("date_admission", "date_labtest", "date_icu", "date_leave_icu",
-            "date_stepdown", "date_final_outcome", "date_censor")) {
-  indlevel[[i]] <- as.numeric(indlevel[[i]] - as.Date("2020-03-09"))
+# tabulate indlevel age and split based on sitrep age bands
+sitrep_lower = c(0, 6, 18, 65, 85, Inf)
+sitrep_upper = c(sitrep_lower[-1] - 1, 110)
+age_group <- cut(0:110, breaks = sitrep_lower, right = FALSE)
+age_tab <- tabulate(indlevel$age + 1, nbins = 111)
+age_weights <- split(age_tab, f = age_group)
+age_values <- split(seq_along(age_tab) - 1, f = age_group)
+
+# get influx in each age band from sitrep
+sitrep_age_raw <- rowSums(mapply(function(i) {
+  mapply(function(x) {
+    sum(x$daily_influx)
+  }, sitrep_list[[i]])
+}, seq_along(sitrep_list)))
+
+# normalise age_weights to match sitrep and to sum to 1
+for (i in seq_along(age_weights)) {
+  age_weights[[i]] <- age_weights[[i]] / sum(age_weights[[i]]) * sitrep_age_raw[i] / sum(sitrep_age_raw)
 }
-
-# get numeric outcome
-indlevel$final_outcome_numeric <- as.numeric(indlevel$final_outcome)
-
-# subset to list of values to pass into MCMC
-indlevel_list <- as.list(subset(indlevel, select = c(age_group,
-                                                     age,
-                                                     icu,
-                                                     stepdown,
-                                                     date_admission,
-                                                     date_labtest,
-                                                     date_icu,
-                                                     date_stepdown,
-                                                     date_final_outcome,
-                                                     final_outcome_numeric,
-                                                     date_censor)))
-
 
 # ------------------------------------------------------------------
 # Final data prep
@@ -257,9 +223,9 @@ for (i in seq_along(indlevel_list)) {
 }
 
 # define age spline nodes
-#print(max(indlevel$age))
+#print(max(indlevel$age)) # max_indlevel_age should exceed this value
 max_indlevel_age <- 110
-age_seq <- c(0, 25, 50, 75, max_indlevel_age)
+age_seq <- c(seq(0, 100, 20), max_indlevel_age)
 
 p_AI_nodex <- age_seq
 p_AI_noden <- length(p_AI_nodex)
@@ -276,16 +242,14 @@ m_AC_noden <- length(m_AC_nodex)
 # create final data list
 data_list <- list(sitrep = sitrep_list,
                   indlevel = indlevel_list,
-                  n_region = n_region,
                   node_x = node_x,
                   lookup_max = lookup_max,
+                  n_region = length(sitrep_list),
+                  n_age_sitrep = length(sitrep_list[[1]]),
                   n_date_sitrep = n_date_sitrep,
-                  n_age_sitrep = n_age_sitrep,
-                  n_age_indlevel = n_age_indlevel,
-                  rel_prop = df_age_indlevel$rel_prop,
-                  map_age_indlevel = df_age_indlevel$sitrep_group,
-                  map_age_sitrep = df_age_sitrep$indlevel_group,
                   max_indlevel_age = max_indlevel_age,
+                  age_weights = age_weights,
+                  age_values = age_values,
                   p_AI_nodex = p_AI_nodex,
                   p_AD_nodex = p_AD_nodex,
                   p_ID_nodex = p_ID_nodex,
@@ -303,56 +267,49 @@ beta_vec <- 1
 pb_markdown <- FALSE
 
 # create parameters dataframe
-create_param_df <- function(name, min, max, init, density) {
-  data.frame(name = paste0(name, 1:n_age_indlevel), min = min, max = max, init = init,
-             density = density,
-             region = 0,
-             indlevel_age = 1:n_age_indlevel,
-             sitrep_age = df_age_indlevel$sitrep_group)
-}
 eg <- expand.grid(1:n_node, 1:n_region)
-df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]), min = 0, max = 10, init = 1, density = -1, region = eg[,2], indlevel_age = -1, sitrep_age = 0),
-                   data.frame(name = paste0("scale_rel_prop", 1:n_age_sitrep), min = 0, max = 5, init = 1, density = -1, region = 0, indlevel_age = -1, sitrep_age = 1:n_age_sitrep),
-                   data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, density = -1, region = -1, indlevel_age = -1, sitrep_age = -1),
-                   data.frame(name = sprintf("p_AD_node%s", 1:p_AD_noden), min = -5, max = 5, init = 0, density = -1, region = -1, indlevel_age = -1, sitrep_age = -1),
-                   data.frame(name = sprintf("p_ID_node%s", 1:p_ID_noden), min = -5, max = 5, init = 0, density = -1, region = -1, indlevel_age = -1, sitrep_age = -1),
-                   data.frame(name = "m_AI", min = 0, max = 20, init = 1, density = 1, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "m_AD", min = 0, max = 20, init = 1, density = 2, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = sprintf("m_AC_node%s", 1:m_AC_noden), min = -5, max = 5, init = 0, density = -1, region = -1, indlevel_age = -1, sitrep_age = -1),
-                   data.frame(name = "m_ID", min = 0, max = 20, init = 1, density = 4, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "m_IS", min = 0, max = 20, init = 1, density = 5, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "m_SC", min = 0, max = 20, init = 1, density = 6, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_AI", min = 0, max = 1, init = 0.9, density = 1, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_AD", min = 0, max = 1, init = 0.7, density = 2, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_AC", min = 0, max = 1, init = 0.7, density = 3, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_ID", min = 0, max = 1, init = 0.9, density = 4, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_IS", min = 0, max = 1, init = 0.9, density = 5, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "s_SC", min = 0, max = 1, init = 0.9, density = 6, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "c_AD", min = 0, max = 1, init = 0.5, density = -1, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "c_AC", min = 0, max = 1, init = 0.5, density = -1, region = 0, indlevel_age = 0, sitrep_age = 0),
-                   data.frame(name = "m_AL", min = 3.5, max = 3.5, init = 3.5, density = -1, region = 0, indlevel_age = -1, sitrep_age = 0),
-                   data.frame(name = sprintf("scale_p_AI%s", 1:n_region), min = 1, max = 1, init = 1, density = -1, region = 1:n_region, indlevel_age = -1, sitrep_age = 0),
-                   data.frame(name = sprintf("scale_p_AD%s", 1:n_region), min = 1, max = 1, init = 1, density = -1, region = 1:n_region, indlevel_age = -1, sitrep_age = 0),
-                   data.frame(name = sprintf("scale_p_ID%s", 1:n_region), min = 1, max = 1, init = 1, density = -1, region = 1:n_region, indlevel_age = -1, sitrep_age = 0)
+df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]), min = 0, max = 10, init = 1, region = eg[,2]),
+                   data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
+                   data.frame(name = sprintf("p_AD_node%s", 1:p_AD_noden), min = -5, max = 5, init = 0, region = 0),
+                   data.frame(name = sprintf("p_ID_node%s", 1:p_ID_noden), min = -5, max = 5, init = 0, region = 0),
+                   data.frame(name = "m_AI", min = 0, max = 20, init = 1, region = 0),
+                   data.frame(name = "m_AD", min = 0, max = 20, init = 1, region = 0),
+                   data.frame(name = sprintf("m_AC_node%s", 1:m_AC_noden), min = -5, max = 5, init = 0, region = 0),
+                   data.frame(name = "m_ID", min = 0, max = 20, init = 1, region = 0),
+                   data.frame(name = "m_IS", min = 0, max = 20, init = 1, region = 0),
+                   data.frame(name = "m_SC", min = 0, max = 20, init = 1, region = 0),
+                   data.frame(name = "s_AI", min = 0, max = 1, init = 0.9, region = 0),
+                   data.frame(name = "s_AD", min = 0, max = 1, init = 0.7, region = 0),
+                   data.frame(name = "s_AC", min = 0, max = 1, init = 0.7, region = 0),
+                   data.frame(name = "s_ID", min = 0, max = 1, init = 0.9, region = 0),
+                   data.frame(name = "s_IS", min = 0, max = 1, init = 0.9, region = 0),
+                   data.frame(name = "s_SC", min = 0, max = 1, init = 0.9, region = 0),
+                   data.frame(name = "c_AD", min = 0, max = 1, init = 0.5, region = 0),
+                   data.frame(name = "c_AC", min = 0, max = 1, init = 0.5, region = 0),
+                   data.frame(name = "c_ID", min = 0, max = 1, init = 0.5, region = 0),
+                   data.frame(name = "c_IS", min = 0, max = 1, init = 0.5, region = 0),
+                   data.frame(name = "m_AL", min = 0, max = 10, init = 1, region = 0),
+                   data.frame(name = sprintf("scale_p_AI%s", 1:n_region), min = 0.1, max = 10, init = 1, region = 0),
+                   data.frame(name = sprintf("scale_p_AD%s", 1:n_region), min = 0.1, max = 10, init = 1, region = 0),
+                   data.frame(name = sprintf("scale_p_ID%s", 1:n_region), min = 1, max = 1, init = 1, region = 0)
 )
 
+# set initial values
+tmp <- read.csv("C:/Users/rverity/Desktop/markovid/ignore/backup/2020-06-16 longrun regional/output/summary_mcmc4.csv")
+#params_init <- tmp$mean
+df_params$init <- params_init
 
-#for (i in seq_len(nrow(df_params))) {
-#  if (!(df_params$name[i] %in% c("m_AD", "s_AD", "c_AD", "m_AC", "s_AC", sprintf("p_AD%s", 1:12)))) {
-#    df_params$min[i] <- df_params$max[i] <- df_params$init[i]
-#  }
-#}
+#w <- which(df_params$name == "scale_p_AD2")
+#df_params$init[w] <- 0.8
 
-# fix scaling in highest age group
-w <- which(df_params$name == sprintf("scale_rel_prop%s", n_age_sitrep))
-df_params$min[w] <- df_params$max[w] <- df_params$init[w] <- 1.0
+#df_params$min[1:42] <- df_params$max[1:42] <- df_params$init[1:42] <- 1
+#df_params$min[87:107] <- df_params$max[87:107] <- df_params$init[87:107] <- 1
+
+#df_params$min[84:85] <- df_params$max[84:85] <- df_params$init[84:85] <- 0
+
 
 # append update rules to data list
-data_list$update_density <- df_params$density
 data_list$update_region <- df_params$region
-data_list$update_indlevel_age <- df_params$indlevel_age
-data_list$update_sitrep_age <- df_params$sitrep_age
-
 
 # ------------------------------------------------------------------
 # Run MCMC
@@ -377,10 +334,11 @@ mcmc <- run_mcmc(data_list = data_list,
 print(Sys.time() - t0)
 
 #as.data.frame(mcmc$diagnostics$mc_accept)
-#plot_credible(mcmc)
-#plot_par(mcmc, show = "m_AD", phase = "both")
-#plot_par(mcmc, show = "c_AD", phase = "both")
+plot_credible(mcmc)
+#plot_par(mcmc, show = "m_AL", phase = "both")
+#plot_par(mcmc, show = "p_AD_node6", phase = "both")
 #subset(mcmc$diagnostics$mc_accept, stage == "sampling")
+
 
 
 # subset to sampling iterations and correct rung
@@ -392,7 +350,6 @@ mcmc_samples <- subset(mcmc_samples_raw, select = -c(chain, rung, iteration, sta
 # create parameter descriptions dataframe
 param_desc <- setNames(rep(NA, ncol(mcmc_samples)), names(mcmc_samples))
 param_desc[sprintf("region%s_node%s", eg[,2], eg[,1])] <- sprintf("spline t%s", 1:n_node)
-param_desc[sprintf("scale_rel_prop%s", 1:n_age_sitrep)] <- "relative\nproportion\nadmissions"
 param_desc[sprintf("p_AI_node%s", 1:p_AI_noden)] <- "probability\nadmission\nto ICU\nspline node"
 param_desc[sprintf("p_AD_node%s", 1:p_AD_noden)] <- "probability\ngeneral ward\nto death\nspline node"
 param_desc[sprintf("p_ID_node%s", 1:p_ID_noden)] <- "probability\nICU\nto death\nspline node"
@@ -409,7 +366,9 @@ param_desc["s_ID"] <- "CV\nICU\nto death"
 param_desc["s_IS"] <- "CV\nICU\nto stepdown"
 param_desc["s_SC"] <- "CV\nstepdown\nto discharge"
 param_desc["c_AD"] <- "censoring admission to death"
-#param_desc["c_AC"] <- "censoring admission to discharge"
+param_desc["c_AC"] <- "censoring admission to discharge"
+param_desc["c_ID"] <- "censoring ICU to death"
+param_desc["c_IS"] <- "censoring ICU to stepdown"
 param_desc["m_AL"] <- "mean\nadmission\nto lab result"
 param_desc[sprintf("scale_p_AI%s", 1:n_region)] <- "scale\nprobability\nadmission\nto ICU"
 param_desc[sprintf("scale_p_AD%s", 1:n_region)] <- "scale\nprobability\nadmission\nto death"
@@ -437,9 +396,7 @@ if (save_diag) {
 credible_all <- plot_credible(mcmc)
 
 # save diagnostics to file
-diags <- list(df_age_indlevel = df_age_indlevel,
-              df_age_sitrep = df_age_sitrep,
-              df_params = df_params,
+diags <- list(df_params = df_params,
               df_param_desc = df_param_desc,
               region_list = region_list,
               trace_both = trace_both,
@@ -476,6 +433,7 @@ write.csv(df_summary, "ignore/output/summary_mcmc4.csv", row.names = FALSE)
 params <- df_summary$mean
 #params <- df_summary$MAP
 names(params) <- df_summary$param
+
 
 # ------------------------------------------------------------------
 # Save spline posterior summaries to file
@@ -524,6 +482,84 @@ age_spline_list <- list(p_AI = p_AI_quantile,
                         m_AC = m_AC_quantile)
 saveRDS(age_spline_list, file = "ignore/output/age_spline.rds")
 
+# ------------------------------------------------------------------
+# Save data quantiles to file
+
+# admission to ICU
+df_quantiles_p_AI <- as.data.frame(t(mapply(function(i) {
+  w <- which(indlevel$age == i-1)
+  n1 <- sum(indlevel$icu[w] == TRUE, na.rm = TRUE)
+  n2 <- sum(indlevel$icu[w] == FALSE, na.rm = TRUE)
+  if (n1 == 0 & n2 == 0) {
+    return(c(i-1,rep(NA, 3)))
+  }
+  tmp <- epitools::binom.exact(n1, n1 + n2)
+  c(i-1, tmp$lower, tmp$upper, n1 / (n1 + n2))
+}, 1:(max_indlevel_age + 1))))
+names(df_quantiles_p_AI) <- c("age", "lower", "upper", "mean")
+
+# general ward to death
+df_quantiles_p_AD <- as.data.frame(t(mapply(function(i) {
+  w <- which(indlevel$age == i-1 & indlevel$icu == FALSE)
+  n1 <- sum(indlevel$final_outcome[w] == "death", na.rm = TRUE)
+  n2 <- sum(indlevel$final_outcome[w] == "discharge", na.rm = TRUE)
+  if (n1 == 0 & n2 == 0) {
+    return(c(i-1,rep(NA, 3)))
+  }
+  tmp <- epitools::binom.exact(n1, n1 + n2)
+  c(i-1, tmp$lower, tmp$upper, n1 / (n1 + n2))
+}, 1:(max_indlevel_age + 1))))
+names(df_quantiles_p_AD) <- c("age", "lower", "upper", "mean")
+
+# ICU to death
+df_quantiles_p_ID <- as.data.frame(t(mapply(function(i) {
+  w <- which(indlevel$age == i-1 & indlevel$icu == TRUE)
+  n1 <- sum(indlevel$final_outcome[w] == "death", na.rm = TRUE)
+  n2 <- sum(indlevel$final_outcome[w] == "discharge", na.rm = TRUE)
+  if (n1 == 0 & n2 == 0) {
+    return(c(i-1,rep(NA, 3)))
+  }
+  tmp <- epitools::binom.exact(n1, n1 + n2)
+  c(i-1, tmp$lower, tmp$upper, n1 / (n1 + n2))
+}, 1:(max_indlevel_age + 1))))
+names(df_quantiles_p_ID) <- c("age", "lower", "upper", "mean")
+
+# overall death
+df_quantiles_p_OD <- as.data.frame(t(mapply(function(i) {
+  w <- which(indlevel$age == i-1)
+  n1 <- sum(indlevel$final_outcome[w] == "death", na.rm = TRUE)
+  n2 <- sum(indlevel$final_outcome[w] == "discharge", na.rm = TRUE)
+  if (n1 == 0 & n2 == 0) {
+    return(c(i-1,rep(NA, 3)))
+  }
+  tmp <- epitools::binom.exact(n1, n1 + n2)
+  c(i-1, tmp$lower, tmp$upper, n1 / (n1 + n2))
+}, 1:(max_indlevel_age + 1))))
+names(df_quantiles_p_OD) <- c("age", "lower", "upper", "mean")
+
+# time general admission to death
+df_quantiles_m_AC <- as.data.frame(t(mapply(function(i) {
+  w <- which(indlevel$age == i-1 & indlevel$icu == FALSE & indlevel$final_outcome == "discharge")
+  delta <- indlevel$date_final_outcome[w] - indlevel$date_admission[w]
+  delta <- delta[!is.na(delta)]
+  if (length(delta) == 0) {
+    return(c(i-1,rep(NA, 3)))
+  }
+  m <- mean(delta)
+  s <- sd(delta) / sqrt(length(delta))
+  c(i-1, m - 1.96*s, m + 1.96*s, m)
+}, 1:(max_indlevel_age + 1))))
+names(df_quantiles_m_AC) <- c("age", "lower", "upper", "mean")
+
+
+# save list to file
+data_quantiles_list <- list(p_AI = df_quantiles_p_AI,
+                            p_AD = df_quantiles_p_AD,
+                            p_ID = df_quantiles_p_ID,
+                            p_OD = df_quantiles_p_OD,
+                            m_AC = df_quantiles_m_AC)
+saveRDS(data_quantiles_list, file = "ignore/output/data_quantiles.rds")
+
 
 # ------------------------------------------------------------------
 # Save ccdf to file
@@ -548,15 +584,26 @@ write.csv(df_ccdf, "ignore/output/ccdf_mcmc4.csv", row.names = FALSE)
 # ------------------------------------------------------------------
 # Save regional proportions to file
 
-# get final proportion in each indlevel age group from fitted scaling factors
-scale_rel_prop <- params[sprintf("scale_rel_prop%s", 1:n_age_sitrep)]
-final_prop <- df_age_indlevel$rel_prop * scale_rel_prop[df_age_indlevel$sitrep_group]
-final_prop <- final_prop / sum(final_prop)
+# get proportion in each 5-year age band
+weight_mat <- matrix(unlist(age_weights)[1:110], nrow = 5)
+df_prop <- data.frame(age = sprintf("%s-%s", seq(0,105,5), seq(4,109,5)),
+                      prop = colSums(weight_mat))
+
+# sum splines by 5-year age bands
+p_AI_mat <- matrix(p_AI_quantile$Q50[1:110], nrow = 5)
+df_prop$p_AI <- colSums(weight_mat * p_AI_mat) / colSums(weight_mat)
+
+p_AD_mat <- matrix(p_AD_quantile$Q50[1:110], nrow = 5)
+df_prop$p_AD <- colSums(weight_mat * p_AD_mat) / colSums(weight_mat)
+
+p_ID_mat <- matrix(p_ID_quantile$Q50[1:110], nrow = 5)
+df_prop$p_ID <- colSums(weight_mat * p_ID_mat) / colSums(weight_mat)
+
+m_AC_mat <- matrix(m_AC_quantile$Q50[1:110], nrow = 5)
+df_prop$m_AC <- colSums(weight_mat * m_AC_mat) / colSums(weight_mat)
 
 # write to file
-write.csv(data.frame(age_group = sprintf(" %s", df_age_indlevel$indlevel_name),
-                     proportion = final_prop),
-          "ignore/output/age_prop_mcmc4.csv", row.names = FALSE)
+write.csv(df_prop, "ignore/output/age_prop_mcmc4.csv", row.names = FALSE)
 
 # ------------------------------------------------------------------
 # Save individual-level fits to file
@@ -569,7 +616,7 @@ sim_data <- sim_indlevel(params = params,
                          m_AC = m_AC_quantile$Q50,
                          date_admission = indlevel_list$date_admission,
                          date_censor = indlevel_list$date_censor,
-                         age = indlevel_list$age_group,
+                         age = indlevel_list$age,
                          n_samp = 1e6)
 
 
@@ -584,14 +631,6 @@ bin_combined <- rbind(bin_real, bin_sim)
 
 # save results to file
 write.csv(bin_combined, "ignore/output/indlevel_fit_mcmc4.csv", row.names = FALSE)
-
-
-ggplot(bin_combined) + theme_bw() +
-  geom_line(aes(x = day, y = proportion, color = type)) +
-  scale_color_manual(values = c("black", "red")) +
-  facet_wrap(~metric, nrow = 2, scales = "free")
-
-
 
 # ------------------------------------------------------------------
 # Save SitRep fits to file
@@ -636,5 +675,6 @@ df_sitrep_fit <- rbind(df_sitrep_fit, df_sitrep_fit_combined)
 write.csv(df_sitrep_fit, "ignore/output/sitrep_fit_mcmc4.csv", row.names = FALSE)
 
 
-#rmarkdown::render("ignore/Rmarkdown/diagnostics_mcmc4.Rmd")
-#rmarkdown::render("ignore/Rmarkdown/summary_mcmc4.Rmd")
+rmarkdown::render("R_ignore/diagnostics_mcmc4.Rmd")
+rmarkdown::render("R_ignore/summary_mcmc4.Rmd")
+

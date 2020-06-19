@@ -23,9 +23,6 @@ public:
   // spline parameters
   std::vector<std::vector<double>> node_y;
   
-  // population proportions
-  std::vector<double> scale_rel_prop;
-  
   // rescaling parameters
   std::vector<double> scale_p_AI;
   std::vector<double> scale_p_AD;
@@ -50,25 +47,6 @@ public:
   // mean durations
   std::vector<double> m_AC_node;
   std::vector<double> m_AC;
-  
-  // dynamic lookup tables for interval distributions
-  std::vector<double> density_AL;
-  std::vector<double> density_AI;
-  std::vector<double> density_AD;
-  std::vector<std::vector<double>> density_AC;
-  //std::vector<double> density_AC;
-  std::vector<double> density_ID;
-  std::vector<double> density_IS;
-  std::vector<double> density_SC;
-  
-  // dynamic lookup tables for complementary cumulative density (ccdf) distributions
-  std::vector<double> tail_AI;
-  std::vector<double> tail_AD;
-  std::vector<std::vector<double>> tail_AC;
-  //std::vector<double> tail_AC;
-  std::vector<double> tail_ID;
-  std::vector<double> tail_IS;
-  std::vector<double> tail_SC;
   
   // objects for storing progression over all stratification
   std::vector<std::vector<std::vector<double>>> admission_incidence;
@@ -126,8 +104,6 @@ public:
   // other public methods
   double get_delay_density(int x, double m, double s);
   double get_delay_tail(int x, double m, double s);
-  void update_gamma_density(std::vector<double> &density_vec, double m, double s);
-  void update_gamma_tail(std::vector<double> &tail_vec, double m, double s);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();
   double get_adjustment(int i);
