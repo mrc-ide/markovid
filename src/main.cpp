@@ -45,7 +45,8 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   if (s.return_fit) {
     
     // return model fit
-    return Rcpp::List::create(Rcpp::Named("admission_incidence") = particle_vec[0].admission_incidence,
+    return Rcpp::List::create(Rcpp::Named("admissions_spline") = particle_vec[0].admissions_spline,
+                              Rcpp::Named("admission_incidence") = particle_vec[0].admission_incidence,
                               Rcpp::Named("deaths_incidence") = particle_vec[0].deaths_incidence,
                               Rcpp::Named("discharges_incidence") = particle_vec[0].discharges_incidence,
                               Rcpp::Named("general_prevalence") = particle_vec[0].general_prevalence,

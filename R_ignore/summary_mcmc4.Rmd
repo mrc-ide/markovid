@@ -24,12 +24,14 @@ diags <- readRDS("../ignore/output/diagnostics_mcmc4.rds")
 df_age_indlevel <- diags$df_age_indlevel
 df_age_sitrep <- diags$df_age_sitrep
 df_param_desc <- diags$df_param_desc
-region_names <- names(diags$region_list)
+region_names <- names(diags$region_list)[1]
 n_region <- length(region_names)
 
 age_spline_list <- readRDS("../ignore/output/age_spline.rds")
 
 data_quantiles_list <- readRDS("../ignore/output/data_quantiles.rds")
+
+overlay_indlevel <- FALSE
 ```
 
 
@@ -52,8 +54,10 @@ plot3 <- ggplot(age_spline_list$m_AC) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,20))
 
-plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
-                                 size = 0.2, data = data_quantiles_list$m_AC)
+if (overlay_indlevel) {
+  plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$m_AC)
+}
 
 # ICU to death
 plot4 <- plot_CrI(df_summary, show = "m_ID", param_names = df_age_indlevel$indlevel_name) +
@@ -79,8 +83,10 @@ plot1 <- ggplot(age_spline_list$p_AI) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("Admission to ICU") + ggplot2::ylim(c(0,1))
 
-plot1 <- plot1 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
-                                 size = 0.2, data = data_quantiles_list$p_AI)
+if (overlay_indlevel) {
+  plot1 <- plot1 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_AI)
+}
 
 # general ward to death
 plot2 <- ggplot(age_spline_list$p_AD) + theme_bw() +
@@ -88,8 +94,10 @@ plot2 <- ggplot(age_spline_list$p_AD) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,1))
 
-plot2 <- plot2 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
-                                 size = 0.2, data = data_quantiles_list$p_AD)
+if (overlay_indlevel) {
+  plot2 <- plot2 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_AD)
+}
 
 # ICU to death
 plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
@@ -97,8 +105,10 @@ plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("ICU to death") + ggplot2::ylim(c(0,1))
 
-plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
-                                 size = 0.2, data = data_quantiles_list$p_ID)
+if (overlay_indlevel) {
+  plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_ID)
+}
 
 # overall death
 plot4 <- ggplot(age_spline_list$p_OD) + theme_bw() +
@@ -106,8 +116,10 @@ plot4 <- ggplot(age_spline_list$p_OD) + theme_bw() +
   geom_line(aes(x = age, y = Q50)) +
   ggplot2::ggtitle("Overall prob. death") + ggplot2::ylim(c(0,1))
 
-plot4 <- plot4 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
-                                 size = 0.2, data = data_quantiles_list$p_OD)
+if (overlay_indlevel) {
+  plot4 <- plot4 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_OD)
+}
 
 cowplot::plot_grid(plot1, plot2, plot3, plot4, nrow = 2)
 ```

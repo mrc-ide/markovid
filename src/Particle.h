@@ -49,6 +49,7 @@ public:
   std::vector<double> m_AC;
   
   // objects for storing progression over all stratification
+  std::vector<std::vector<double>> admissions_spline;
   std::vector<std::vector<std::vector<double>>> admission_incidence;
   std::vector<std::vector<std::vector<double>>> deaths_incidence;
   std::vector<std::vector<std::vector<double>>> discharges_incidence;

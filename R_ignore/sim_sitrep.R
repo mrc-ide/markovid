@@ -1,229 +1,175 @@
 
-# deploy.R
-#
-# Author: Bob Verity
-# Date: 2019-05-02
-#
-# Purpose:
-# Test package functions.
-
-# RStudio shortcuts:
-#    cmd+shift+L     : load package from local version
-#    cmd+shift+D     : document (NB, option must be activated in Build Tools)
-#    cmd+shift+E     : check
-#    cmd+shift+T     : test
-
-# Useful commands:
-# devtools::install()  # install package
-# pkgdown::build_site() # build all pages of pkgdown website
-# pkgdown::build_article('index')  # build single vignette
-# check('.', args = '--no-examples')  # run checks without examples
-# covr::report()    # interactive coverage report
-# devtools::build_vignettes()
-# ------------------------------------------------------------------
-
-#devtools::install_github("mrc-ide/drjacoby", ref = "develop")
-#library(drjacoby)
-
-library(ggplot2)
-library(epitools)
-
 set.seed(1)
 
-
-# ------------------------------------------------------------------
-# Prepare individual-level data
-
-# load raw data
-#cocin_raw <- read.csv("C:/Users/rverity/Desktop/ncov/ncov-outputs/src/mcmc_uk_progression/raw_data/cocin_cleaned.csv",
-#                      stringsAsFactors = FALSE)
-#cocin_raw <- read.csv("C:/Users/rverity/Desktop/cocin_cleaned_20200421_region.csv",
-#                      stringsAsFactors = FALSE)
-chess <- readRDS("C:/Users/rverity/Desktop/CHESS.rds")
-
-# prepare data
-#cocin <- prepare_cocin_v2(cocin_raw)
-#cocin <- subset(cocin, !is.na(date_updated))
-#indlevel <- prepare_indlevel(cocin)
-indlevel <- prepare_indlevel(chess)
-
-indlevel$region <- "london"
-
-# create list of regions
-region_names <- c("east of england", "london", "midlands",
-                  "north east and yorkshire", "north west",
-                  "south east", "south west")[1:2]
-region_list <- as.list(region_names)
-names(region_list) <- region_list
-
-#region_list <- list("all England" = region_names)
-
-# subset regions
-indlevel$region <- as.character(indlevel$region)
-n_region <- length(region_list)
-indlevel <- subset(indlevel, region %in% unlist(region_list))
-
-# must have an admission date within specified range. Should be chosen
-# pragmatically on the basis of admissions curve with the aim of removing backfill issues
-#tab1 <- table(indlevel$date_admission)
-#plot(tab1); abline(v = which(names(tab1) == "2020-06-01"), col = 2, lwd = 2)
-indlevel <- subset(indlevel, date_admission >= as.Date("2020-03-09") &
-                             date_admission <= as.Date("2020-06-01"))
-
-# set censoring time manually
-indlevel$date_censor <- as.Date("2020-06-01")
-#indlevel$date_censor <- as.Date("2021-06-01")
-indlevel <- subset(indlevel, date_admission <= date_censor &
-                     (is.na(date_icu) | date_icu <= date_censor) &
-                     (is.na(date_leave_icu) | date_leave_icu <= date_censor) &
-                     (is.na(date_final_outcome) | date_final_outcome <= date_censor) &
-                     (is.na(date_stepdown) | date_stepdown <= date_censor))
-
-# must have an age
-indlevel <- subset(indlevel, !is.na(age) & age > 0)
-
-# make age integer
-indlevel$age <- floor(indlevel$age)
-
-# make dates numeric
-for (i in c("date_admission", "date_labtest", "date_icu", "date_leave_icu",
-            "date_stepdown", "date_final_outcome", "date_censor")) {
-  indlevel[[i]] <- as.numeric(indlevel[[i]] - as.Date("2020-03-09"))
+# logit transform
+logit <- function(x, z = 1) {
+  -log((z - x) / x)
 }
 
-# get numeric outcome
-indlevel$final_outcome_numeric <- as.numeric(indlevel$final_outcome)
+# define true parameters
+true_params <- c(m_AL = 0.1,
+                 p_AI = 0.5,
+                 p_AD = 0.5,
+                 m_AD = 10,
+                 s_AD = 0.8,
+                 m_AI = 3,
+                 s_AI = 1,
+                 m_AC = 10,
+                 s_AC = 0.8,
+                 p_ID = 0.8,
+                 m_ID = 10,
+                 s_ID = 0.8,
+                 m_IS = 10,
+                 s_IS = 0.8,
+                 m_SC = 5,
+                 s_SC = 1,
+                 c_AD = 1,
+                 c_AC = 1,
+                 c_ID = 1,
+                 c_IS = 1,
+                 scale_p_AI1 = 1,
+                 scale_p_AD1 = 1,
+                 scale_p_ID1 = 1)
 
-# subset to list of values to pass into MCMC
-indlevel_list <- as.list(subset(indlevel, select = c(age,
-                                                     icu,
-                                                     stepdown,
-                                                     date_admission,
-                                                     date_labtest,
-                                                     date_icu,
-                                                     date_stepdown,
-                                                     date_final_outcome,
-                                                     final_outcome_numeric,
-                                                     date_censor)))
+# convert to node values
+n_node <- 7
+
+p_AI_node <- rep(logit(true_params["p_AI"]), n_node)
+names(p_AI_node) <- sprintf("p_AI_node%s", seq_len(n_node))
+
+p_AD_node <- rep(logit(true_params["p_AD"]), n_node)
+names(p_AD_node) <- sprintf("p_AD_node%s", seq_len(n_node))
+
+p_ID_node <- rep(logit(true_params["p_ID"]), n_node)
+names(p_ID_node) <- sprintf("p_ID_node%s", seq_len(n_node))
+
+m_AC_node <- rep(logit(true_params["m_AC"], 20), n_node)
+names(m_AC_node) <- sprintf("m_AC_node%s", seq_len(n_node))
+
+true_params <- c(true_params, p_AI_node, p_AD_node, p_ID_node, m_AC_node)
 
 
-# ------------------------------------------------------------------
-# Prepare SitRep data
+# define true admissions curve
+t_vec <- -15:40
+true_admissions_curve <- ceiling(1e3 * dnorm(t_vec, mean = 12, sd = 5))
 
-# load raw SitRep and deaths data
-sitrep_raw <- readRDS("C:/Users/rverity/Desktop/ncov/ncov-outputs/src/mcmc_uk_progression/raw_data/combined_covid_sitrep_by_region.rds")
-deaths_raw <- readRDS("C:/Users/rverity/Desktop/deaths_full_linelist.rds")
+# simulate progression
+sim <- data.frame(date_admission = rep(t_vec, times = true_admissions_curve))
+n_sim <- nrow(sim)
+sim$date_test <- sim$date_admission + floor(rgamma(n_sim, shape = 1, scale = true_params["m_AL"]))
+sim$icu <- runif(n_sim) < true_params["p_AI"]
+w <- which(!sim$icu)
+sim$final_outcome <- NA
+sim$final_outcome[w] <- sample(c("death", "discharge"), length(w), replace = TRUE, prob = c(true_params["p_AD"], 1 - true_params["p_AD"]))
+w2 <- which(!sim$icu & sim$final_outcome == "death")
+sim$date_final_outcome <- NA
+sim$date_final_outcome[w2] <- sim$date_admission[w2] + 
+                              floor(rgamma(length(w2), shape = 1/true_params["s_AD"]^2, scale = true_params["m_AD"]*true_params["s_AD"]^2))
+w2 <- which(!sim$icu & sim$final_outcome == "discharge")
+sim$date_final_outcome[w2] <- sim$date_admission[w2] + 
+                              floor(rgamma(length(w2), shape = 1/true_params["s_AC"]^2, scale = true_params["m_AC"]*true_params["s_AC"]^2))
+w <- which(sim$icu)
+sim$date_icu <- NA
+sim$date_icu[w] <- sim$date_admission[w] +
+                   floor(rgamma(length(w), shape = 1/true_params["s_AI"]^2, scale = true_params["m_AI"]*true_params["s_AI"]^2))
+sim$final_outcome[w] <- sample(c("death", "discharge"), length(w), replace = TRUE, prob = c(true_params["p_ID"], 1 - true_params["p_ID"]))
+w2 <- which(sim$icu & sim$final_outcome == "death")
+sim$date_final_outcome[w2] <- sim$date_icu[w2] + 
+                              floor(rgamma(length(w2), shape = 1/true_params["s_ID"]^2, scale = true_params["m_ID"]*true_params["s_ID"]^2))
+w2 <- which(sim$icu & sim$final_outcome == "discharge")
+sim$date_stepdown <- NA
+sim$date_stepdown[w2] <- sim$date_icu[w2] +
+                         floor(rgamma(length(w2), shape = 1/true_params["s_IS"]^2, scale = true_params["m_IS"]*true_params["s_IS"]^2))
+sim$date_final_outcome[w2] <- sim$date_stepdown[w2] + 
+                              floor(rgamma(length(w2), shape = 1/true_params["s_SC"]^2, scale = true_params["m_SC"]*true_params["s_SC"]^2))
 
-# fix region format
-deaths_raw$region <- tolower(deaths_raw$nhser_name)
+sim$age <- sample(0:105, n_sim, replace = TRUE)
 
-# filter sitrep on dates
-sitrep_raw <- subset(sitrep_raw, sitrep_raw$date <= as.Date("2020-04-26"))
+# initialise sitrep object over all age groups
+age_lower <- c(0, 6, 18, 65, 85)
+age_upper <- c(age_lower[-1] - 1, 110)
+nt <- length(t_vec)
+sitrep <- replicate(5, data.frame(t = t_vec,
+                                  obs_admissions = NA,
+                                  deaths_general = NA,
+                                  discharges_general = NA,
+                                  stepup = NA,
+                                  deaths_critical = NA,
+                                  stepdown = NA,
+                                  discharges_stepdown = NA,
+                                  prevalence_general = NA,
+                                  prevalence_critical = NA),
+                    simplify = FALSE)
 
-# prepare deaths
-deaths <- prepare_deaths(deaths_raw)
-
-# specify max date at which death data should be included. Should be chosen
-# pragmatically on the basis of deaths curve with the aim of removing backfill issues
-#tab1 <- table(deaths$date_admission)
-#plot(tab1); abline(v = which(names(tab1) == "2020-05-01"), col = 2, lwd = 2)
-deaths_max_date <- as.Date("2020-05-01")
-
-# prepare each region separately
-sitrep_list <- list()
-for (i in seq_along(region_list)) {
-  
-  # sum sitrep over regions in this element of region_list
-  sitrep_i <- data.frame(date = sitrep_raw$date,
-                         metric_name = sitrep_raw$metric_name,
-                         value = rowSums(sitrep_raw[, region_list[[i]], drop = FALSE]),
-                         stringsAsFactors = FALSE)
-  
-  # subset deaths to regions in this element of region_list
-  deaths_i <- subset(deaths, region %in% region_list[[i]])
-  
-  # prepare sitrep and merge deaths
-  sitrep_i <- prepare_sitrep_age(sitrep_i, deaths_i)
-  
-  # apply death date cutoff
-  sitrep_i$deaths[sitrep_i$date > deaths_max_date] <- NA
-  
-  # create new field for total daily influx
-  sitrep_i$daily_influx <- sitrep_i$new_admissions + sitrep_i$new_inpatients_diagnosed
-  
-  # split by age group
-  sitrep_list[[i]] <- split(sitrep_i, f = sitrep_i$age_group)
-  
-  # subset fields
-  for (j in seq_along(sitrep_list[[i]])) {
-    sitrep_list[[i]][[j]] <- as.list(subset(sitrep_list[[i]][[j]],
-                                            select = c(date_numeric,
-                                                       daily_influx,
-                                                       total_hdu_icu,
-                                                       total_general,
-                                                       deaths,
-                                                       new_discharges)))
+# convert individual-level to aggregate level
+for (age_i in seq_along(age_lower)) {
+  sim_age <- subset(sim, age >= age_lower[age_i] & age < age_upper[age_i])
+  for (i in seq_along(t_vec)) {
+    j <- t_vec[i]
+    sitrep[[age_i]]$obs_admissions[i] <- sum(sim_age$date_test == j)
+    sitrep[[age_i]]$deaths_general[i] <- sum(sim_age$date_test <= j & !sim_age$icu & sim_age$final_outcome == "death" & sim_age$date_final_outcome == j)
+    sitrep[[age_i]]$discharges_general[i] <- sum(sim_age$date_test <= j & !sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_final_outcome == j)
+    sitrep[[age_i]]$stepup[i] <- sum(sim_age$date_test <= j & sim_age$date_icu == j, na.rm = TRUE)
+    sitrep[[age_i]]$deaths_critical[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "death" & sim_age$date_final_outcome == j)
+    sitrep[[age_i]]$stepdown[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown == j)
+    sitrep[[age_i]]$discharges_stepdown[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_final_outcome == j)
+    sitrep[[age_i]]$prevalence_general[i] <- sum(sim_age$date_test <= j & !sim_age$icu & sim_age$date_final_outcome >= j) +
+                                             sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown <= j & sim_age$date_final_outcome >= j)
+    sitrep[[age_i]]$prevalence_critical[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "death" & sim_age$date_final_outcome > j) +
+                                              sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown > j)
   }
+  
+  # clean up
+  sitrep[[age_i]] <- subset(sitrep[[age_i]], t > 0)
+  sitrep[[age_i]]$date_numeric <- sitrep[[age_i]]$t
+  sitrep[[age_i]]$daily_influx <- sitrep[[age_i]]$obs_admissions
+  sitrep[[age_i]]$total_hdu_icu <- sitrep[[age_i]]$prevalence_critical
+  sitrep[[age_i]]$total_general <- sitrep[[age_i]]$prevalence_general
+  sitrep[[age_i]]$deaths <- sitrep[[age_i]]$deaths_general + sitrep[[age_i]]$deaths_critical
+  sitrep[[age_i]]$new_discharges <- sitrep[[age_i]]$discharges_general + sitrep[[age_i]]$discharges_stepdown
+  
+  sitrep[[age_i]] <- subset(sitrep[[age_i]], select = c(date_numeric, daily_influx, total_hdu_icu,
+                                                        total_general, deaths, new_discharges))
+  
 }
 
-# ------------------------------------------------------------------
-# Define age weights
+# make list over regions
+sitrep_list <- list(sitrep)
 
-# tabulate indlevel age and split based on sitrep age bands
-sitrep_lower = c(0, 6, 18, 65, 85, Inf)
-sitrep_upper = c(sitrep_lower[-1] - 1, 110)
-age_group <- cut(0:110, breaks = sitrep_lower, right = FALSE)
-age_tab <- tabulate(indlevel$age + 1, nbins = 111)
+# ------------------------------------------------------------------------------------------------
+
+# get age weights
+age_group <- cut(0:110, breaks = c(age_lower, Inf), right = FALSE)
+age_tab <- rep(1 / 111, 111)
 age_weights <- split(age_tab, f = age_group)
 age_values <- split(seq_along(age_tab) - 1, f = age_group)
-
-# get influx in each age band from sitrep
-sitrep_age_raw <- rowSums(mapply(function(i) {
-  mapply(function(x) {
-    sum(x$daily_influx)
-  }, sitrep_list[[i]])
-}, seq_along(sitrep_list)))
-
-# normalise age_weights to match sitrep and to sum to 1
-for (i in seq_along(age_weights)) {
-  age_weights[[i]] <- age_weights[[i]] / sum(age_weights[[i]]) * sitrep_age_raw[i] / sum(sitrep_age_raw)
-}
-
-# ------------------------------------------------------------------
-# Final data prep
 
 # get number of rows in each sitrep
 n_date_sitrep <- length(sitrep_list[[1]][[1]][[1]])
 
 # specify x-positions (numeric dates) in admissions spline
-n_node <- 6
+n_node <- 7
 node_x <- round(seq(-15, n_date_sitrep, length.out = n_node))
 
-# ensure no duplicated spline points
-if (any(duplicated(node_x))) {
-  stop("cannot have duplicated spline points")
-}
+
+
+
+
+
+
+
+plot(t_vec, true_admissions_curve)
+abline(v = node_x)
+points(node_x, true_admissions_curve[m], col = 2)
+
+
+
+
 
 # get longest interval that could possibly be required for lookup table
-max_indlevel1 <- max(indlevel_list$date_final_outcome - indlevel_list$date_admission, na.rm = TRUE)
-max_indlevel2 <- max(indlevel_list$date_censor - indlevel_list$date_admission, na.rm = TRUE)
-max_sitrep <- n_date_sitrep - min(node_x)
-lookup_max <- max(max_indlevel1, max_indlevel2, max_sitrep) + 1
-
-# replace NAs in lists with -1 (understood by C++)
-for (i in seq_along(sitrep_list)) {
-  for (j in seq_along(sitrep_list[[i]])) {
-    for (k in seq_along(sitrep_list[[i]][[j]])) {
-      sitrep_list[[i]][[j]][[k]][is.na(sitrep_list[[i]][[j]][[k]])] <- -1
-    }
-  }
-}
-for (i in seq_along(indlevel_list)) {
-  indlevel_list[[i]][is.na(indlevel_list[[i]])] <- -1
-}
+lookup_max <-  n_date_sitrep - min(node_x) + 1
 
 # define age spline nodes
-#print(max(indlevel$age)) # max_indlevel_age should exceed this value
 max_indlevel_age <- 110
 age_seq <- c(seq(0, 100, 20), max_indlevel_age)
 
@@ -238,6 +184,8 @@ p_ID_noden <- length(p_ID_nodex)
 
 m_AC_nodex <- age_seq
 m_AC_noden <- length(m_AC_nodex)
+
+names(sitrep_list[[1]][[1]])
 
 # create final data list
 data_list <- list(sitrep = sitrep_list,
@@ -255,18 +203,11 @@ data_list <- list(sitrep = sitrep_list,
                   p_ID_nodex = p_ID_nodex,
                   m_AC_nodex = m_AC_nodex)
 
-
 # ------------------------------------------------------------------
 # MCMC parameters
 
-# define MCMC parameters
-burnin <- 5e3
-samples <- 5e3
-chains <- 2
-beta_vec <- 1
-pb_markdown <- FALSE
-
 # create parameters dataframe
+n_region <- length(sitrep_list)
 eg <- expand.grid(1:n_node, 1:n_region)
 df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]), min = 0, max = 10, init = 1, region = eg[,2]),
                    data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
@@ -295,26 +236,33 @@ df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]),
 )
 
 # set initial values
-tmp <- read.csv("C:/Users/rverity/Desktop/markovid/ignore/backup/2020-06-16 longrun regional/output/summary_mcmc4.csv")
-params_init <- tmp$mean
-#params_init <- params_init[c(7:12, 43:86, 88, 95, 102)]
-params_init <- params_init[c(1:12, 43:88, 94:95, 101:102)]
-df_params$init <- params_init
+m <- match(names(true_params), df_params$name)
+df_params$init[m[!is.na(m)]] <- true_params[which(!is.na(m))]
 
-#w <- which(df_params$name == "scale_p_AD2")
-#df_params$init[w] <- 0.8
+# set fixed parameters
+fixed_params <- setdiff(names(true_params), c("m_AD")[-1])
+m <- match(fixed_params, df_params$name)
+df_params$min[m[!is.na(m)]] <- df_params$max[m[!is.na(m)]] <- df_params$init[m[!is.na(m)]]
 
-#df_params$min[1:42] <- df_params$max[1:42] <- df_params$init[1:42] <- 1
-#df_params$min[87:107] <- df_params$max[87:107] <- df_params$init[87:107] <- 1
-
-#df_params$min[84:85] <- df_params$max[84:85] <- df_params$init[84:85] <- 0
-
+# fix regional node y values
+m <- match(node_x, t_vec)
+region_fitted <- log(true_admissions_curve[m])
+for (i in seq_along(region_fitted)) {
+  df_params$min[i] <- df_params$max[i] <- df_params$init[i] <- region_fitted[i]
+}
 
 # append update rules to data list
 data_list$update_region <- df_params$region
 
 # ------------------------------------------------------------------
 # Run MCMC
+
+# define MCMC parameters
+burnin <- 1e1
+samples <- 1e1
+chains <- 1
+beta_vec <- 1
+pb_markdown <- FALSE
 
 beta_vec <- rev(c(seq(1e-5, 9.5e-5, 5e-6),
                   seq(1e-4, 9e-4, 1e-4),
@@ -337,7 +285,7 @@ print(Sys.time() - t0)
 
 #as.data.frame(mcmc$diagnostics$mc_accept)
 plot_credible(mcmc)
-#plot_par(mcmc, show = "m_AL", phase = "both")
+#plot_par(mcmc, show = "m_AD", phase = "both")
 #plot_par(mcmc, show = "scale_p_AD1", phase = "both")
 #subset(mcmc$diagnostics$mc_accept, stage == "sampling")
 
@@ -381,14 +329,15 @@ df_param_desc <- data.frame(param = names(param_desc),
                             description = param_desc)
 
 
+
 # ------------------------------------------------------------------
 # Save diagnostics to file
 
 # save trace plots
-save_diag <- TRUE
+save_diag <- FALSE
 if (save_diag) {
   trace_both <- plot_par(mcmc, phase = "both", display = FALSE)
-  trace_sampling <- plot_par(mcmc, phase = "sampling", display = FALSE)
+  trace_sampling <- NULL#plot_par(mcmc, phase = "sampling", display = FALSE)
 } else {
   trace_both <- NULL
   trace_sampling <- NULL
@@ -483,6 +432,8 @@ age_spline_list <- list(p_AI = p_AI_quantile,
                         p_OD = p_OD_quantile,
                         m_AC = m_AC_quantile)
 saveRDS(age_spline_list, file = "ignore/output/age_spline.rds")
+
+
 
 # ------------------------------------------------------------------
 # Save data quantiles to file
@@ -583,6 +534,7 @@ df_ccdf <- cbind(description = s_desc,
 write.csv(df_ccdf, "ignore/output/ccdf_mcmc4.csv", row.names = FALSE)
 
 
+
 # ------------------------------------------------------------------
 # Save regional proportions to file
 
@@ -606,6 +558,7 @@ df_prop$m_AC <- colSums(weight_mat * m_AC_mat) / colSums(weight_mat)
 
 # write to file
 write.csv(df_prop, "ignore/output/age_prop_mcmc4.csv", row.names = FALSE)
+
 
 # ------------------------------------------------------------------
 # Save individual-level fits to file
@@ -634,6 +587,8 @@ bin_combined <- rbind(bin_real, bin_sim)
 # save results to file
 write.csv(bin_combined, "ignore/output/indlevel_fit_mcmc4.csv", row.names = FALSE)
 
+
+
 # ------------------------------------------------------------------
 # Save SitRep fits to file
 
@@ -643,7 +598,7 @@ df_fit$init <- params[match(df_fit$name, names(params))]
 df_model_fit <- run_mcmc(data_list = data_list,
                          df_params = df_fit,
                          return_fit = TRUE)
-df_model_fit$x <- df_model_fit$x + node_x[1]
+df_model_fit$by_age$x <- df_model_fit$by_age$x + node_x[1]
 
 # get sitrep into same format
 df_sitrep <- nested_to_long(sitrep_list)
@@ -659,7 +614,7 @@ df_sitrep$metric <- metric_rename[df_sitrep$metric]
 df_sitrep$value[df_sitrep$value == -1] <- NA
 
 # combine model fit with sitrep
-df_sitrep_fit <- rbind(cbind(df_model_fit[,names(df_sitrep)], type = "model"),
+df_sitrep_fit <- rbind(cbind(df_model_fit$by_age[,names(df_sitrep)], type = "model"),
                        cbind(df_sitrep, type = "data"))
 
 # get combined fit
@@ -677,6 +632,6 @@ df_sitrep_fit <- rbind(df_sitrep_fit, df_sitrep_fit_combined)
 write.csv(df_sitrep_fit, "ignore/output/sitrep_fit_mcmc4.csv", row.names = FALSE)
 
 
+
 #rmarkdown::render("R_ignore/diagnostics_mcmc4.Rmd")
 #rmarkdown::render("R_ignore/summary_mcmc4.Rmd")
-

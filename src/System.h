@@ -16,7 +16,7 @@ public:
   bool return_fit;
   
   // misc data
-  std::vector<int> node_x;
+  std::vector<double> node_x;
   int n_node;
   int n_spline;
   int lookup_max;

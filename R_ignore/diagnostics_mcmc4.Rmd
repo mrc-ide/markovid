@@ -24,6 +24,7 @@ diags$credible_all + axis_rotate
 
 ```{r, echo=FALSE, fig.width=9}
 for (i in seq_along(diags$trace_both)) {
+#for (i in 1:3) {
   plot_i <- diags$trace_both[[i]]$combined
   title <- cowplot::ggdraw() +
     cowplot::draw_label(sprintf("parameter: %s", df_params$name[i]), x = 0, hjust = 0) +
