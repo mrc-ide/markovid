@@ -1,13 +1,40 @@
 
 #------------------------------------------------
+#' @title Run main MCMC
+#'
+#' @description Take in data, model parameters, and MCMC parameters. Run main
+#'   MCMC inferring model parameters using the likelihood within this package.
+#'
+#' @param data_list List of data in defined format (see implementation scripts).
+#' @param df_params Dataframe of parameters in same format as drjacoby package.
+#' @param burnin Burn-in iterations.
+#' @param samples Sampling iterations.
+#' @param beta_vec A vector of powers that allow for thermodynamic MCMC. If set
+#'   at 1 then thermodynamic MCMC is effectively turned off and this simplifies
+#'   to ordinary MCMC.
+#' @param chains Independent MCMC chains.
+#' @param pb_markdown If TRUE then run in markdown safe mode.
+#' @param silent If TRUE then console output is suppressed.
+#' @param return_fit If TRUE then MCMC is not run, instead the model fit is
+#'   returned under the initial parameter values specified in the parameters
+#'   dataframe.
+#'
+#' @import ggplot2
+#' @importFrom stats prcomp
+#' @export
+
 run_mcmc <- function(data_list,
                      df_params,
                      burnin = 1e3,
                      samples = 1e4,
-                     rungs = 1,
-                     chains = 5,
+                     beta_vec = 1,
+                     chains = 1,
                      pb_markdown = FALSE,
-                     silent = FALSE) {
+                     silent = FALSE,
+                     return_fit = FALSE) {
+  
+  # avoid "no visible binding" note
+  stage <- value <- chain <- link <- NULL
   
   # ---------- check inputs ----------
   
@@ -25,7 +52,6 @@ run_mcmc <- function(data_list,
   # check MCMC parameters
   assert_single_pos_int(burnin, zero_allowed = FALSE)
   assert_single_pos_int(samples, zero_allowed = FALSE)
-  assert_single_pos_int(rungs, zero_allowed = FALSE)
   assert_single_pos_int(chains, zero_allowed = FALSE)
   
   # check misc parameters
@@ -34,6 +60,9 @@ run_mcmc <- function(data_list,
   
   
   # ---------- pre-processing ----------
+  
+  # get number of rungs
+  rungs <- length(beta_vec)
   
   # calculate transformation type for each parameter
   # 0 = [-Inf,Inf] -> phi = theta
@@ -57,9 +86,10 @@ run_mcmc <- function(data_list,
                       skip_param = skip_param,
                       burnin = burnin,
                       samples = samples,
-                      rungs = rungs,
+                      beta_vec = beta_vec,
                       pb_markdown = pb_markdown,
-                      silent = silent)
+                      silent = silent,
+                      return_fit = return_fit)
   
   # functions to pass to C++
   args_functions <- list(test_convergence = test_convergence,
@@ -80,6 +110,33 @@ run_mcmc <- function(data_list,
   
   # run in serial
   output_raw <- lapply(parallel_args, deploy_chain)
+  
+  
+  # ---------- option to return model fit ----------
+  
+  if (return_fit) {
+    
+    # extract elements that are not defined over ages
+    admissions_spline <- output_raw[[1]]$admissions_spline
+    
+    # drop elements that are not defined over ages
+    raw_names <- names(output_raw[[1]])
+    output_raw[[1]] <- output_raw[[1]][setdiff(raw_names, "admissions_spline")]
+    
+    # get remaining into long form
+    by_age <- nested_to_long(output_raw[[1]])
+    names(by_age) <- c("x", "value", "age", "region", "metric")
+    by_age$metric <- c("admission_incidence",
+                       "deaths_incidence",
+                       "discharges_incidence",
+                       "general_prevalence",
+                       "critical_prevalence")[by_age$metric]
+    
+    ret <- list(admissions_spline = admissions_spline,
+                by_age = by_age)
+    return(ret)
+    
+  }
   
   # ---------- process output ----------
   
@@ -129,7 +186,7 @@ run_mcmc <- function(data_list,
     output_processed$diagnostics$rhat <- rhat_est
   }
   
-  # MC
+  # Metropolis coupling
   if (rungs > 1) {
     
     # Beta raised
@@ -146,8 +203,7 @@ run_mcmc <- function(data_list,
   }
   
   ## Parameters
-  output_processed$parameters <- list(data = data,
-                                      df_params = df_params,
+  output_processed$parameters <- list(df_params = df_params,
                                       burnin = burnin,
                                       samples = samples,
                                       rungs = rungs,
@@ -170,8 +226,8 @@ deploy_chain <- function(args) {
   samples <- args$args_params$samples
   
   # make progress bars
-  pb_burnin <- txtProgressBar(min = 0, max = burnin, initial = NA, style = 3)
-  pb_samples <- txtProgressBar(min = 0, max = samples, initial = NA, style = 3)
+  pb_burnin <- utils::txtProgressBar(min = 0, max = burnin, initial = NA, style = 3)
+  pb_samples <- utils::txtProgressBar(min = 0, max = samples, initial = NA, style = 3)
   args$args_progress <- list(pb_burnin = pb_burnin,
                              pb_samples = pb_samples)
   
@@ -181,21 +237,20 @@ deploy_chain <- function(args) {
   return(ret)
 }
 
-#------------------------------------------------
-#' Extract theta into list of matrices over rungs
-#'
-#' @param theta_list List of thetas
-#' @param param_names Vector of parameter names
-#' @param rung_names Vector of rung names
-#'
-#' @return List of matrices
-get_theta_rungs <- function(theta_list, param_names, rung_names) {
-  ret <- mapply(function(x) {
-    ret <- as.data.frame(rcpp_to_matrix(x))
-    names(ret) <- param_names
-    ret
-  }, theta_list, SIMPLIFY = FALSE)
-  names(ret) <- rung_names
-  ret
+# ------------------------------------------------------------------
+# convert nested list to long dataframe
+#' @noRd
+nested_to_long <- function(nl) {
+  
+  do.call(rbind, mapply(function(k) {
+    cbind(do.call(rbind, mapply(function(j) {
+      cbind(do.call(rbind, mapply(function(i) {
+        data.frame(x = seq_along(nl[[k]][[j]][[i]]),
+                   value = nl[[k]][[j]][[i]],
+                   i = i)
+      }, seq_along(nl[[k]][[j]]), SIMPLIFY = FALSE)), j = j)
+    }, seq_along(nl[[k]]), SIMPLIFY = FALSE)), k = k)
+  }, seq_along(nl), SIMPLIFY = FALSE))
+  
 }
 
