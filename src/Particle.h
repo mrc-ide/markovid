@@ -2,8 +2,8 @@
 #pragma once
 
 #include "System.h"
-#include "misc_v7.h"
-#include "probability_v3.h"
+#include "misc_v10.h"
+#include "probability_v10.h"
 
 #include <Rcpp.h>
 
@@ -20,8 +20,49 @@ public:
   // local copies of some parameters for convenience
   int d;
   
-  // thermodynamic power
-  double beta;
+  // spline parameters
+  std::vector<std::vector<double>> node_y;
+  
+  // rescaling parameters
+  std::vector<double> scale_p_AI;
+  std::vector<double> scale_p_AD;
+  std::vector<double> scale_p_ID;
+  
+  // lab test weights
+  std::vector<double> pos_on_day;
+  std::vector<double> neg_by_day;
+  std::vector<double> pos_by_day;
+  
+  // vector over ages for cubic splines
+  std::vector<double> age_seq;
+  
+  // transition probabilities
+  std::vector<double> p_AI_node;
+  std::vector<double> p_AI;
+  std::vector<double> p_AD_node;
+  std::vector<double> p_AD;
+  std::vector<double> p_ID_node;
+  std::vector<double> p_ID;
+  
+  // mean durations
+  std::vector<double> m_AC_node;
+  std::vector<double> m_AC;
+  
+  // objects for storing progression over all stratification
+  std::vector<std::vector<double>> admissions_spline;
+  std::vector<std::vector<std::vector<double>>> admission_incidence;
+  std::vector<std::vector<std::vector<double>>> deaths_incidence;
+  std::vector<std::vector<std::vector<double>>> discharges_incidence;
+  std::vector<std::vector<std::vector<double>>> general_prevalence;
+  std::vector<std::vector<std::vector<double>>> critical_prevalence;
+  
+  std::vector<double> delta_stepup;
+  std::vector<double> delta_stepdown;
+  std::vector<double> delta_deaths_general;
+  std::vector<double> delta_discharges_general;
+  std::vector<double> delta_open_general;
+  std::vector<double> delta_deaths_critical;
+  std::vector<double> delta_open_critical;
   
   // theta is the parameter vector in natural space
   std::vector<double> theta;
@@ -52,16 +93,18 @@ public:
   Particle() {};
   
   // initialise
-  void init(System &s, double beta);
+  void init(System &s);
   
   // update theta[i] via univariate Metropolis-Hastings
-  void update();
+  void update(double beta);
   
   // loglikelihood and logprior
-  double get_loglike(std::vector<double> &theta);
-  double get_logprior(std::vector<double> &theta);
+  double get_loglike(std::vector<double> &theta, int theta_i, bool quick_exit = false);
+  double get_logprior(std::vector<double> &theta, int theta_i);
   
   // other public methods
+  double get_delay_density(int x, double m, double s);
+  double get_delay_tail(int x, double m, double s);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();
   double get_adjustment(int i);

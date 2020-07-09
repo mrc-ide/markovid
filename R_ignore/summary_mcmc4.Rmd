@@ -1,0 +1,227 @@
+---
+title: "Markovid_summary"
+output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y, %H:%M')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(ggplot2)
+
+source("../R/assertions_v8.R")
+source("../R/plot.R")
+```
+
+## Credible interval plots
+
+```{r, echo=FALSE}
+df_summary <- read.csv("../ignore/output/summary_mcmc4.csv")
+
+diags <- readRDS("../ignore/output/diagnostics_mcmc4.rds")
+df_age_indlevel <- diags$df_age_indlevel
+df_age_sitrep <- diags$df_age_sitrep
+df_param_desc <- diags$df_param_desc
+region_names <- names(diags$region_list)
+n_region <- length(region_names)
+
+age_spline_list <- readRDS("../ignore/output/age_spline.rds")
+
+data_quantiles_list <- readRDS("../ignore/output/data_quantiles.rds")
+
+overlay_indlevel <- TRUE
+```
+
+
+### Average length of stay
+
+```{r, echo=FALSE, fig.width=9, fig.height=12}
+plot_max <- 30
+
+# admission ward to ICU
+plot1 <- plot_CrI(df_summary, show = "m_AI", param_names = df_age_indlevel$indlevel_name) +
+  ggplot2::ggtitle("Admission to ICU") + ggplot2::ylim(c(0,plot_max))
+
+# general ward to death
+plot2 <- plot_CrI(df_summary, show = "m_AD", param_names = df_age_indlevel$indlevel_name) +
+  ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,plot_max))
+
+# general ward to discharge
+plot3 <- ggplot(age_spline_list$m_AC) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("General ward to discharge") + ggplot2::ylim(c(0,20))
+
+if (overlay_indlevel) {
+  plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$m_AC)
+}
+
+# ICU to death
+plot4 <- plot_CrI(df_summary, show = "m_ID", param_names = df_age_indlevel$indlevel_name) +
+  ggplot2::ggtitle("ICU to death") + ggplot2::ylim(c(0,plot_max))
+
+# ICU to stepdown
+plot5 <- plot_CrI(df_summary, show = "m_IS", param_names = df_age_indlevel$indlevel_name) +
+  ggplot2::ggtitle("ICU to stepdown") + ggplot2::ylim(c(0,plot_max))
+
+# stepdown to discharge
+plot6 <- plot_CrI(df_summary, show = "m_SC", param_names = df_age_indlevel$indlevel_name) +
+  ggplot2::ggtitle("Stepdown to discharge") + ggplot2::ylim(c(0,plot_max))
+
+cowplot::plot_grid(plot1, plot2, plot3, plot4, plot5, plot6, nrow = 3)
+```
+
+### Transition probabilities
+
+```{r, echo=FALSE, fig.width=9, fig.height=8}
+# admission to ICU
+plot1 <- ggplot(age_spline_list$p_AI) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("Admission to ICU") + ggplot2::ylim(c(0,1))
+
+if (overlay_indlevel) {
+  plot1 <- plot1 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_AI)
+}
+
+# general ward to death
+plot2 <- ggplot(age_spline_list$p_AD) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("General ward to death") + ggplot2::ylim(c(0,1))
+
+if (overlay_indlevel) {
+  plot2 <- plot2 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_AD)
+}
+
+# ICU to death
+plot3 <- ggplot(age_spline_list$p_ID) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("ICU to death") + ggplot2::ylim(c(0,1))
+
+if (overlay_indlevel) {
+  plot3 <- plot3 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_ID)
+}
+
+# overall death
+plot4 <- ggplot(age_spline_list$p_OD) + theme_bw() +
+  geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "red", alpha = 0.5) +
+  geom_line(aes(x = age, y = Q50)) +
+  ggplot2::ggtitle("Overall prob. death") + ggplot2::ylim(c(0,1))
+
+if (overlay_indlevel) {
+  plot4 <- plot4 + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                   size = 0.2, data = data_quantiles_list$p_OD)
+}
+
+cowplot::plot_grid(plot1, plot2, plot3, plot4, nrow = 2)
+```
+
+### Misc parameters
+
+```{r, echo=FALSE, fig.width=9, fig.height=4}
+
+# labtest
+plot1 <- plot_CrI(df_summary, show = c("m_AL"), param_names = c("admission\nto lab result")) +
+  ggplot2::ggtitle("Lab result")
+
+# censoring parameters
+plot2 <- plot_CrI(df_summary, show = c("c_AD", "c_AC", "c_ID", "c_IS")) +
+  ggplot2::ggtitle("proportion censored") + ggplot2::ylim(c(0,1))
+
+
+cowplot::plot_grid(plot1, plot2, nrow = 1)
+
+
+
+# rotate x-axis labels
+rotate_x <- ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1))
+
+# scaling parameters
+plot1 <- plot_CrI(df_summary, show = sprintf("scale_p_AI%s", 1:n_region),
+                  param_names = region_names) +
+  ggplot2::ggtitle("Scale p_AI") + ggplot2::ylim(c(0,3)) + rotate_x
+
+plot2 <- plot_CrI(df_summary, show = sprintf("scale_p_AD%s", 1:n_region),
+                  param_names = region_names) +
+  ggplot2::ggtitle("Scale p_AD") + ggplot2::ylim(c(0,3)) + rotate_x
+
+plot3 <- plot_CrI(df_summary, show = sprintf("scale_p_ID%s", 1:n_region),
+                  param_names = region_names) +
+  ggplot2::ggtitle("Scale p_ID") + ggplot2::ylim(c(0,3)) + rotate_x
+
+#print(plot1, plot2, plot3)
+cowplot::plot_grid(plot1, plot2, plot3, nrow = 1)
+
+#plot1 <- plot_CrI(df_summary, show = sprintf("scale_m_AD%s", 1:n_region),
+#                  param_names = region_names) +
+#  ggplot2::ggtitle("Scale m_AD") + ggplot2::ylim(c(0,2)) + rotate_x
+#plot1
+```
+
+
+## Fits to individual-level data
+
+```{r, echo=FALSE, fig.width=9, fig.height=6}
+# read in results
+bin_combined <- read.csv("../ignore/output/indlevel_fit_mcmc4.csv")
+
+# create faceted plot
+plot1 <- ggplot2::ggplot(bin_combined) + ggplot2::theme_bw() +
+  ggplot2::geom_line(ggplot2::aes(x = day, y = proportion, color = type)) +
+  ggplot2::scale_color_manual(values = c("black", "red")) +
+  ggplot2::facet_wrap(~metric, nrow = 2, scales = "free")
+plot1
+```
+
+
+## Fits to SitRep
+
+```{r, echo=FALSE, fig.width=9, fig.height=6}
+# read in results
+df_sitrep_fit <- read.csv("../ignore/output/sitrep_fit_mcmc4.csv")
+
+# get metrics in correct order
+metric_levels <- c("admission_incidence", "deaths_incidence", "discharges_incidence",
+                   "general_prevalence","critical_prevalence")
+df_sitrep_fit$metric <- factor(df_sitrep_fit$metric, levels = metric_levels)
+
+# define colours
+age_cols <- RColorBrewer::brewer.pal(5, "Set1")
+
+# create plot list
+for (i in seq_len(n_region)) {
+  plot1 <- ggplot2::ggplot(subset(df_sitrep_fit, region == i)) + ggplot2::theme_bw() +
+    ggplot2::geom_line(ggplot2::aes(x = x, y = value, color = as.factor(age), linetype = type)) +
+    ggplot2::facet_wrap(~metric, scales = "free") +
+    ggplot2::scale_color_manual(values = age_cols, labels = df_age_sitrep$sitrep_name, name = NULL)+
+    ggplot2::scale_linetype_manual(values = c("solid", "dashed"))
+  
+  main_title <- cowplot::ggdraw() +
+    cowplot::draw_label(region_names[i], x = 0.05, hjust = 0, size = 20)
+  cp <- cowplot::plot_grid(main_title, plot1, ncol = 1, rel_heights = c(0.1,1))
+  print(cp)
+}
+
+# combined plot
+plot1 <- ggplot2::ggplot(subset(df_sitrep_fit, region == 0)) + ggplot2::theme_bw() +
+    ggplot2::geom_line(ggplot2::aes(x = x, y = value, color = as.factor(age), linetype = type)) +
+    ggplot2::facet_wrap(~metric, scales = "free") +
+    ggplot2::scale_color_manual(values = age_cols, labels = df_age_sitrep$sitrep_name, name = NULL)+
+    ggplot2::scale_linetype_manual(values = c("solid", "dashed"))
+
+main_title <- cowplot::ggdraw() +
+    cowplot::draw_label("aggregated fit", x = 0.05, hjust = 0, size = 20)
+cp <- cowplot::plot_grid(main_title, plot1, ncol = 1, rel_heights = c(0.1,1))
+print(cp)
+
+```
+
+
