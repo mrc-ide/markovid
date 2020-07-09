@@ -1,64 +1,16 @@
 
 #------------------------------------------------
-# Plot Metropolis coupling acceptance rates
-#' @export
-
-plot_mc_acceptance <- function(x, chain = 1, phase = "sampling", x_axis_type = 1) {
-  
-  # check inputs
-  assert_custom_class(x, "drjacoby_output")
-  assert_single_pos_int(chain)
-  assert_in(phase, c("burnin", "sampling"))
-  assert_single_pos_int(x_axis_type)
-  assert_in(x_axis_type, 1:2)
-  
-  # declare variables to avoid "no visible binding" issues
-  stage <- value <- NULL
-  
-  # get useful quantities
-  chain_get <- paste0("chain", chain)
-  thermo_power <- x$diagnostics$rung_details$thermodynamic_power
-  thermo_power_mid <- thermo_power[-1] - diff(thermo_power)/2
-  rungs <- length(thermo_power)
-  
-  # exit if rungs = 1
-  if (rungs == 1) {
-    stop("no metropolis coupling when rungs = 1")
-  }
-  
-  # define x-axis type
-  if (x_axis_type == 1) {
-    breaks_vec <- rungs:2
-    x_vec <- (rungs:2) - 0.5
-    x_lab <- "rung"
-  } else {
-    breaks_vec <- thermo_power
-    x_vec <- thermo_power_mid
-    x_lab <- "thermodynamic power"
-  }
-  
-  # get acceptance rates
-  mc_accept <- dplyr::filter(x$diagnostics$mc_accept, stage == phase, chain == chain_get) %>%
-    dplyr::pull(value)
-  
-  # get data into ggplot format and define temperature colours
-  df <- as.data.frame(mc_accept)
-  df$col <- thermo_power_mid
-  
-  # produce plot
-  plot1 <- ggplot(df) + theme_bw() + theme(panel.grid.minor.x = element_blank(),
-                                           panel.grid.major.x = element_blank())
-  plot1 <- plot1 + geom_vline(aes(xintercept = breaks_vec), col = grey(0.9))
-  plot1 <- plot1 + scale_y_continuous(limits = c(0,1), expand = c(0,0))
-  plot1 <- plot1 + geom_point(aes(x = x_vec, y = mc_accept, color = col))
-  plot1 <- plot1 + xlab(x_lab) + ylab("coupling acceptance rate")
-  plot1 <- plot1 + scale_colour_gradientn(colours = c("red", "blue"), name = "thermodynamic\npower", limits = c(0,1))
-  
-  return(plot1)
-}
-
-#------------------------------------------------
-# Plot autocorrelation
+#' @title Plot autocorrelation
+#'   
+#' @description Plot loglikelihood 95\% credible intervals.
+#'   
+#' @param x an object of class \code{drjacoby_output}
+#' @param lag calculate autocorrelation up to this many lags.
+#' @param par which parameter to plot.
+#' @param chain which chain to plot.
+#' @param phase whether to plot from burnin or sampling phase.
+#' @param rung which thermodynamic rung to plot.
+#'
 #' @export
 
 plot_autocorrelation <- function(x, lag = 20, par = NULL, chain = 1, phase = "sampling", rung = 1) {
@@ -104,7 +56,19 @@ plot_autocorrelation <- function(x, lag = 20, par = NULL, chain = 1, phase = "sa
 }
 
 #------------------------------------------------
-# Plot parameter estimates
+#' @title Plot parameter summary
+#'   
+#' @description Combined plot of posterior summaries of a given parameter or set of parameters.
+#'   
+#' @param x an object of class \code{drjacoby_output}.
+#' @param show which parameters to plot.
+#' @param hide which parameters to omit from plot.
+#' @param lag calculate autocorrelation up to this many lags.
+#' @param downsample whether to downsample iterations.
+#' @param phase whether to plot from burnin or sampling phase.
+#' @param rung which thermodynamic rung to plot.
+#' @param display if FALSE the plot is produced but not saved.
+#'
 #' @export
 
 plot_par <- function(x, show = NULL, hide = NULL, lag = 20,
@@ -223,7 +187,16 @@ plot_par <- function(x, show = NULL, hide = NULL, lag = 20,
 }
 
 #------------------------------------------------
-# Plot parameter correlation
+#' @title Plot parameter autocorrelation
+#'   
+#' @description Plot parameter autocorrelation.
+#'   
+#' @param x an object of class \code{drjacoby_output}.
+#' @param parameter1,parameter2 which parameters to plot.
+#' @param downsample whether to downsample iterations.
+#' @param phase whether to plot from burnin or sampling phase.
+#' @param rung which thermodynamic rung to plot.
+#'
 #' @export
 
 plot_cor <- function(x, parameter1, parameter2,
@@ -266,7 +239,16 @@ plot_cor <- function(x, parameter1, parameter2,
 }
 
 #------------------------------------------------
-# Plot 95\% credible intervals
+#' @title Credible interval plot
+#'   
+#' @description Produce credible interval plot.
+#'   
+#' @param x an object of class \code{drjacoby_output}.
+#' @param show which parameters to plot.
+#' @param phase whether to plot from burnin or sampling phase.
+#' @param rung which thermodynamic rung to plot.
+#' @param param_names manually define parameter names on plot.
+#'
 #' @export
 
 plot_credible <- function(x, show = NULL, phase = "sampling", rung = 1, param_names = NULL) {
@@ -316,8 +298,21 @@ plot_credible <- function(x, show = NULL, phase = "sampling", rung = 1, param_na
 
 
 #------------------------------------------------
-# plot credible intervals
+#' @title Produce credible interval plot from dataframe
+#'   
+#' @description Combined plot of posterior summaries of a given parameter or set of parameters.
+#'   
+#' @param x a dataframe.
+#' @param show which parameters to plot.
+#' @param param_names manually define parameter names.
+#' @param rotate If TRUE, parameter names are rotated.
+#'
+#' @export
+
 plot_CrI <- function (x, show = NULL, param_names = NULL, rotate = FALSE) {
+  
+  # avoid "no visible binding" note
+  param <- NULL
   
   # check inputs
   assert_dataframe(x)
@@ -339,8 +334,8 @@ plot_CrI <- function (x, show = NULL, param_names = NULL, rotate = FALSE) {
   
   # create plot
   ret <- ggplot2::ggplot(df_plot) + ggplot2::theme_bw() +
-    ggplot2::geom_pointrange(ggplot2::aes(x = param, y = Q50, ymin = Q2.5, ymax = Q97.5)) +
-    ggplot2::geom_point(ggplot2::aes(x = param, y = MAP, col = "ML")) +
+    ggplot2::geom_pointrange(ggplot2::aes_(x = ~param, y = ~Q50, ymin = ~Q2.5, ymax = ~Q97.5)) +
+    ggplot2::geom_point(ggplot2::aes_(x = ~param, y = ~MAP, col = "ML")) +
     ggplot2::scale_x_discrete(labels = param_names) +
     ggplot2::xlab("") + ggplot2::ylab("95% CrI")
   
@@ -353,51 +348,166 @@ plot_CrI <- function (x, show = NULL, param_names = NULL, rotate = FALSE) {
 }
 
 #------------------------------------------------
-# plot credible intervals coloured by a given variable
-plot_CrI_colour <- function (x, col = 1, col_names = NULL,
-                             show = NULL, param_names = NULL, rotate = FALSE) {
-  #x <- df_summary
+#' @title Plot loglikelihood 95\% credible intervals
+#'   
+#' @description Plot loglikelihood 95\% credible intervals.
+#'   
+#' @param x an object of class \code{drjacoby_output}
+#' @param chain which chain to plot.
+#' @param phase which phase to plot. Must be either "burnin" or "sampling".
+#' @param x_axis_type how to format the x-axis. 1 = integer rungs, 2 = values of
+#'   the thermodynamic power.
+#' @param y_axis_type how to format the y-axis. 1 = raw values, 2 = truncated at
+#'   auto-chosen lower limit. 3 = double-log scale.
+#'
+#' @export
+
+plot_rung_loglike <- function(x, chain = 1, phase = "sampling", x_axis_type = 1, y_axis_type = 1) {
   
   # check inputs
-  assert_dataframe(x)
-  assert_in(c("param", "Q2.5", "Q50", "Q97.5"), names(x))
+  assert_custom_class(x, "drjacoby_output")
+  assert_single_pos_int(chain)
+  assert_leq(chain, length(x))
+  assert_in(phase, c("burnin", "sampling"))
+  assert_single_pos_int(x_axis_type)
+  assert_in(x_axis_type, 1:2)
+  assert_single_pos_int(y_axis_type)
+  assert_in(y_axis_type, 1:3)
   
-  # add colour column
-  x$col <- as.factor(col)
+  # declare variables to avoid "no visible binding" issues
+  stage <- rung <- value <- loglikelihood <- NULL
   
-  # subset parameters
-  if (is.null(show)) {
-    show <- x$param
-  }
-  df_plot <- subset(x, param %in% show)
+  # get useful quantities
+  chain_get <- paste0("chain", chain)
+  thermo_power <- x$diagnostics$rung_details$thermodynamic_power
+  rungs <- length(thermo_power)
   
-  # default param names
-  if (is.null(param_names)) {
-    param_names <- unique(show)
-  }
-  
-  # default colour names
-  if (is.null(col_names)) {
-    col_names <- as.character(col)
-  }
-  
-  # ensure factor levels ordered correctly
-  df_plot$param <- factor(df_plot$param, levels = show)
-  
-  # create plot
-  ret <- ggplot2::ggplot(df_plot) + ggplot2::theme_bw() +
-    ggplot2::geom_pointrange(ggplot2::aes(x = param, y = Q50, ymin = Q2.5, ymax = Q97.5, col = col),
-                          position = ggplot2::position_dodge(width = 0.5)) + 
-    ggplot2::scale_x_discrete(labels = param_names) +
-    ggplot2::xlab("") + ggplot2::ylab("95% CrI") +
-    ggplot2::scale_color_discrete(labels = col_names) +
-    ggplot2::theme(panel.grid.major.x = ggplot2::element_blank()) +
-    ggplot2::geom_vline(xintercept = 1:6 + 0.5, col = grey(0.75))
-  
-  # optionally rotate axis labels
-  if (rotate) {
-    ret <- ret + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1))
+  # define x-axis type
+  if (x_axis_type == 1) {
+    x_vec <- rungs:1
+    x_lab <- "rung"
+  } else {
+    x_vec <- thermo_power
+    x_lab <- "thermodynamic power"
   }
   
-  return(ret)
+  # get plotting values (loglikelihoods)
+  data <- dplyr::filter(x$output, chain == chain_get, stage == phase)
+  y_lab <- "log-likelihood"
+  
+  # move to plotting deviance if specified
+  if (y_axis_type == 3) {
+    data$loglikelihood <- -2 * data$loglikelihood
+    y_lab <- "deviance"
+    
+    # if needed, scale by adding/subtracting a power of ten until all values are
+    # positive
+    if (min(data$loglikelihood) < 0) {
+      dev_scale_power <- ceiling(log(abs(min(data$loglikelihood)))/log(10))
+      dev_scale_sign <- -sign(min(data$loglikelihood))
+      data$loglikelihood <- data$loglikelihood + dev_scale_sign*10^dev_scale_power
+      
+      dev_scale_base <- ifelse(dev_scale_power == 0, 1, 10)
+      dev_scale_power_char <- ifelse(dev_scale_power <= 1, "", paste("^", dev_scale_power))
+      dev_scale_sign_char <- ifelse(dev_scale_sign < 0, "-", "+")
+      y_lab <- parse(text = paste("deviance", dev_scale_sign_char, dev_scale_base, dev_scale_power_char))
+    }
+  }
+  
+  # get 95% credible intervals over plotting values
+  y_intervals <- data %>%
+    dplyr::group_by(rung) %>%
+    dplyr::summarise(Q2.5 = quantile(loglikelihood, 0.025),
+                     Q50 =  quantile(loglikelihood, 0.5),
+                     Q97.5 = quantile(loglikelihood, 0.975))
+  
+  # get data into ggplot format and define temperature colours
+  df <- y_intervals
+  df$col <- thermo_power
+  
+  # produce plot
+  plot1 <- ggplot(df) + theme_bw() + theme(panel.grid.minor.x = element_blank(),
+                                           panel.grid.major.x = element_blank())
+  plot1 <- plot1 + geom_vline(aes(xintercept = x_vec), col = grey(0.9))
+  plot1 <- plot1 + geom_segment(aes_(x = ~x_vec, y = ~Q2.5, xend = ~x_vec, yend = ~Q97.5))
+  plot1 <- plot1 + geom_point(aes_(x = ~x_vec, y = ~Q50, color = ~col))
+  plot1 <- plot1 + xlab(x_lab) + ylab(y_lab)
+  plot1 <- plot1 + scale_colour_gradientn(colours = c("red", "blue"), name = "thermodynamic\npower", limits = c(0,1))
+  
+  # define y-axis
+  if (y_axis_type == 2) {
+    y_min <- quantile(df$Q2.5, probs = 0.5)
+    y_max <- max(df$Q97.5)
+    plot1 <- plot1 + coord_cartesian(ylim = c(y_min, y_max))
+  } else if (y_axis_type == 3) {
+    plot1 <- plot1 + scale_y_continuous(trans = "log10")
+  }
+  
+  # return plot object
+  return(plot1)
+}
+
+#------------------------------------------------
+#' @title Plot Metropolis coupling acceptance rates
+#'
+#' @description Plot Metropolis coupling acceptance rates between all rungs.
+#'
+#' @inheritParams plot_rung_loglike
+#'
+#' @import ggplot2
+#' @importFrom grDevices grey
+#' @export
+
+plot_mc_acceptance <- function(x, chain = 1, phase = "sampling", x_axis_type = 1) {
+  
+  # check inputs
+  assert_custom_class(x, "drjacoby_output")
+  assert_single_pos_int(chain)
+  assert_in(phase, c("burnin", "sampling"))
+  assert_single_pos_int(x_axis_type)
+  assert_in(x_axis_type, 1:2)
+  
+  # declare variables to avoid "no visible binding" issues
+  stage <- value <- NULL
+  
+  # get useful quantities
+  chain_get <- paste0("chain", chain)
+  thermo_power <- x$diagnostics$rung_details$thermodynamic_power
+  thermo_power_mid <- thermo_power[-1] - diff(thermo_power)/2
+  rungs <- length(thermo_power)
+  
+  # exit if rungs = 1
+  if (rungs == 1) {
+    stop("no metropolis coupling when rungs = 1")
+  }
+  
+  # define x-axis type
+  if (x_axis_type == 1) {
+    breaks_vec <- rungs:2
+    x_vec <- (rungs:2) - 0.5
+    x_lab <- "rung"
+  } else {
+    breaks_vec <- thermo_power
+    x_vec <- thermo_power_mid
+    x_lab <- "thermodynamic power"
+  }
+  
+  # get acceptance rates
+  mc_accept <- dplyr::filter(x$diagnostics$mc_accept, stage == phase, chain == chain_get) %>%
+    dplyr::pull(value)
+  
+  # get data into ggplot format and define temperature colours
+  df <- as.data.frame(mc_accept)
+  df$col <- thermo_power_mid
+  
+  # produce plot
+  plot1 <- ggplot(df) + theme_bw() + theme(panel.grid.minor.x = element_blank(),
+                                           panel.grid.major.x = element_blank())
+  plot1 <- plot1 + geom_vline(aes(xintercept = breaks_vec), col = grey(0.9))
+  plot1 <- plot1 + scale_y_continuous(limits = c(0,1), expand = c(0,0))
+  plot1 <- plot1 + geom_point(aes(x = x_vec, y = mc_accept, color = col))
+  plot1 <- plot1 + xlab(x_lab) + ylab("coupling acceptance rate")
+  plot1 <- plot1 + scale_colour_gradientn(colours = c("red", "blue"), name = "thermodynamic\npower", limits = c(0,1))
+  
+  return(plot1)
 }
