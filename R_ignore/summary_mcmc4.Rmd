@@ -24,14 +24,14 @@ diags <- readRDS("../ignore/output/diagnostics_mcmc4.rds")
 df_age_indlevel <- diags$df_age_indlevel
 df_age_sitrep <- diags$df_age_sitrep
 df_param_desc <- diags$df_param_desc
-region_names <- names(diags$region_list)[1]
+region_names <- names(diags$region_list)
 n_region <- length(region_names)
 
 age_spline_list <- readRDS("../ignore/output/age_spline.rds")
 
 data_quantiles_list <- readRDS("../ignore/output/data_quantiles.rds")
 
-overlay_indlevel <- FALSE
+overlay_indlevel <- TRUE
 ```
 
 
@@ -147,15 +147,15 @@ rotate_x <- ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust
 # scaling parameters
 plot1 <- plot_CrI(df_summary, show = sprintf("scale_p_AI%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_AI") + ggplot2::ylim(c(0,10)) + rotate_x
+  ggplot2::ggtitle("Scale p_AI") + ggplot2::ylim(c(0,3)) + rotate_x
 
 plot2 <- plot_CrI(df_summary, show = sprintf("scale_p_AD%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_AD") + ggplot2::ylim(c(0,10)) + rotate_x
+  ggplot2::ggtitle("Scale p_AD") + ggplot2::ylim(c(0,3)) + rotate_x
 
 plot3 <- plot_CrI(df_summary, show = sprintf("scale_p_ID%s", 1:n_region),
                   param_names = region_names) +
-  ggplot2::ggtitle("Scale p_ID") + ggplot2::ylim(c(0,10)) + rotate_x
+  ggplot2::ggtitle("Scale p_ID") + ggplot2::ylim(c(0,3)) + rotate_x
 
 #print(plot1, plot2, plot3)
 cowplot::plot_grid(plot1, plot2, plot3, nrow = 1)

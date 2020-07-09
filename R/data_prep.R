@@ -262,7 +262,11 @@ prepare_indlevel <- function(indlevel) {
 # prepare raw SitRep data in age-stratified format
 #' @export
 
-prepare_sitrep_age <- function(sitrep, deaths) {
+prepare_sitrep_age <- function(sitrep, deaths, admission_to_result) {
+    
+    #sitrep <- sitrep_i
+    #deaths <- deaths_i
+    #admission_to_result <- admission_to_result
     
     # define age bands
     age_bands <- data.frame(group = 1:5,
@@ -344,8 +348,21 @@ prepare_sitrep_age <- function(sitrep, deaths) {
                                age_group = seq_len(nrow(age_bands)))
     sitrep_wide <- merge(sitrep_wide, date_buffer, all = TRUE)
     
+    # get dates in ascending order
+    sitrep_wide <- sitrep_wide[order(sitrep_wide$age_group, sitrep_wide$date_numeric),]
+    
+    # throw back newly diagnosed cases by admission-to-result distribution
+    sitrep_wide$new_inpatients_diagnosed_throwback <- 0
+    sitrep_wide <- do.call(rbind, mapply(function(i) {
+        sub1 <- subset(sitrep_wide, age_group == i)
+        for (j in seq_len(nrow(sub1))) {
+            sub1$new_inpatients_diagnosed_throwback[1:j] <- sub1$new_inpatients_diagnosed_throwback[1:j] + sub1$new_inpatients_diagnosed[j] * rev(admission_to_result[1:j])
+        }
+        sub1
+    }, 1:5, SIMPLIFY = FALSE))
+    
     # re-order rows and columns
-    new_names <- c("date_numeric", new_names)
+    new_names <- c("date_numeric", new_names, "new_inpatients_diagnosed_throwback")
     sitrep_wide <- sitrep_wide[order(sitrep_wide$date_numeric, sitrep_wide$age_group),]
     sitrep_wide <- subset(sitrep_wide, select = new_names)
     

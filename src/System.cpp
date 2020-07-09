@@ -19,9 +19,6 @@ void System::load(Rcpp::List args) {
   Rcpp::List data_list = args_params["data_list"];
   
   // misc data
-  node_x = rcpp_to_vector_double(data_list["node_x"]);
-  n_node = node_x.size();
-  n_spline = node_x[n_node - 1] - node_x[0] + 1;
   lookup_max = rcpp_to_int(data_list["lookup_max"]);
   n_region = rcpp_to_int(data_list["n_region"]);
   n_age_sitrep = rcpp_to_int(data_list["n_age_sitrep"]);

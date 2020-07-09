@@ -28,7 +28,7 @@
 library(ggplot2)
 library(epitools)
 
-set.seed(1)
+set.seed(4)
 
 
 # ------------------------------------------------------------------
@@ -52,7 +52,7 @@ indlevel$region <- "london"
 # create list of regions
 region_names <- c("east of england", "london", "midlands",
                   "north east and yorkshire", "north west",
-                  "south east", "south west")[1:2]
+                  "south east", "south west")
 region_list <- as.list(region_names)
 names(region_list) <- region_list
 
@@ -86,7 +86,7 @@ indlevel <- subset(indlevel, !is.na(age) & age > 0)
 indlevel$age <- floor(indlevel$age)
 
 # make dates numeric
-for (i in c("date_admission", "date_labtest", "date_icu", "date_leave_icu",
+for (i in c("date_admission", "date_swab", "date_labtest", "date_icu", "date_leave_icu",
             "date_stepdown", "date_final_outcome", "date_censor")) {
   indlevel[[i]] <- as.numeric(indlevel[[i]] - as.Date("2020-03-09"))
 }
@@ -105,6 +105,7 @@ indlevel_list <- as.list(subset(indlevel, select = c(age,
                                                      date_final_outcome,
                                                      final_outcome_numeric,
                                                      date_censor)))
+
 
 
 # ------------------------------------------------------------------
@@ -129,6 +130,10 @@ deaths <- prepare_deaths(deaths_raw)
 #plot(tab1); abline(v = which(names(tab1) == "2020-05-01"), col = 2, lwd = 2)
 deaths_max_date <- as.Date("2020-05-01")
 
+# get distribution of time from admission to positive test result from individual-level data
+admission_to_result <- tabulate(indlevel$date_labtest - indlevel$date_admission + 1, nbins = 100)
+admission_to_result <- admission_to_result / sum(admission_to_result)
+
 # prepare each region separately
 sitrep_list <- list()
 for (i in seq_along(region_list)) {
@@ -143,13 +148,13 @@ for (i in seq_along(region_list)) {
   deaths_i <- subset(deaths, region %in% region_list[[i]])
   
   # prepare sitrep and merge deaths
-  sitrep_i <- prepare_sitrep_age(sitrep_i, deaths_i)
+  sitrep_i <- prepare_sitrep_age(sitrep_i, deaths_i, admission_to_result)
   
   # apply death date cutoff
   sitrep_i$deaths[sitrep_i$date > deaths_max_date] <- NA
   
   # create new field for total daily influx
-  sitrep_i$daily_influx <- sitrep_i$new_admissions + sitrep_i$new_inpatients_diagnosed
+  sitrep_i$daily_influx <- sitrep_i$new_admissions + sitrep_i$new_inpatients_diagnosed_throwback
   
   # split by age group
   sitrep_list[[i]] <- split(sitrep_i, f = sitrep_i$age_group)
@@ -187,6 +192,11 @@ sitrep_age_raw <- rowSums(mapply(function(i) {
 # normalise age_weights to match sitrep and to sum to 1
 for (i in seq_along(age_weights)) {
   age_weights[[i]] <- age_weights[[i]] / sum(age_weights[[i]]) * sitrep_age_raw[i] / sum(sitrep_age_raw)
+}
+
+# change of plan - normalise weights within groups
+for (i in seq_along(age_weights)) {
+  age_weights[[i]] <- age_weights[[i]] / sum(age_weights[[i]])
 }
 
 # ------------------------------------------------------------------
@@ -259,17 +269,8 @@ data_list <- list(sitrep = sitrep_list,
 # ------------------------------------------------------------------
 # MCMC parameters
 
-# define MCMC parameters
-burnin <- 5e3
-samples <- 5e3
-chains <- 2
-beta_vec <- 1
-pb_markdown <- FALSE
-
 # create parameters dataframe
-eg <- expand.grid(1:n_node, 1:n_region)
-df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]), min = 0, max = 10, init = 1, region = eg[,2]),
-                   data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
+df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = sprintf("p_AD_node%s", 1:p_AD_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = sprintf("p_ID_node%s", 1:p_ID_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = "m_AI", min = 0, max = 20, init = 1, region = 0),
@@ -295,26 +296,28 @@ df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]),
 )
 
 # set initial values
-tmp <- read.csv("C:/Users/rverity/Desktop/markovid/ignore/backup/2020-06-16 longrun regional/output/summary_mcmc4.csv")
+#tmp <- read.csv("C:/Users/rverity/Desktop/markovid/ignore/backup/2020-06-16 longrun regional/output/summary_mcmc4.csv")
+tmp <- read.csv("C:/Users/rverity/Desktop/markovid/ignore/output/summary_mcmc4.csv")
 params_init <- tmp$mean
-#params_init <- params_init[c(7:12, 43:86, 88, 95, 102)]
-params_init <- params_init[c(1:12, 43:88, 94:95, 101:102)]
+#params_init <- params_init[c(7:12, 43:86, 88, 95, 102)]  # for 1 region
+#params_init <- params_init[c(1:12, 43:88, 94:95, 101:102)]  # for 2 regions
 df_params$init <- params_init
 
 #w <- which(df_params$name == "scale_p_AD2")
 #df_params$init[w] <- 0.8
-
-#df_params$min[1:42] <- df_params$max[1:42] <- df_params$init[1:42] <- 1
-#df_params$min[87:107] <- df_params$max[87:107] <- df_params$init[87:107] <- 1
-
-#df_params$min[84:85] <- df_params$max[84:85] <- df_params$init[84:85] <- 0
-
 
 # append update rules to data list
 data_list$update_region <- df_params$region
 
 # ------------------------------------------------------------------
 # Run MCMC
+
+# define MCMC parameters
+burnin <- 1e1
+samples <- 1e1
+chains <- 1
+beta_vec <- 1
+pb_markdown <- FALSE
 
 beta_vec <- rev(c(seq(1e-5, 9.5e-5, 5e-6),
                   seq(1e-4, 9e-4, 1e-4),
@@ -337,11 +340,13 @@ print(Sys.time() - t0)
 
 #as.data.frame(mcmc$diagnostics$mc_accept)
 plot_credible(mcmc)
-#plot_par(mcmc, show = "m_AL", phase = "both")
+#plot_par(mcmc, show = "m_AD", phase = "both")
 #plot_par(mcmc, show = "scale_p_AD1", phase = "both")
 #subset(mcmc$diagnostics$mc_accept, stage == "sampling")
 
 
+# save mcmc to file
+#saveRDS(mcmc, "ignore/output/mcmc.rds")
 
 # subset to sampling iterations and correct rung
 mcmc_samples_raw <- subset(mcmc$output, stage == "sampling" & rung == "rung1")
@@ -351,7 +356,6 @@ mcmc_samples <- subset(mcmc_samples_raw, select = -c(chain, rung, iteration, sta
 
 # create parameter descriptions dataframe
 param_desc <- setNames(rep(NA, ncol(mcmc_samples)), names(mcmc_samples))
-param_desc[sprintf("region%s_node%s", eg[,2], eg[,1])] <- sprintf("spline t%s", 1:n_node)
 param_desc[sprintf("p_AI_node%s", 1:p_AI_noden)] <- "probability\nadmission\nto ICU\nspline node"
 param_desc[sprintf("p_AD_node%s", 1:p_AD_noden)] <- "probability\ngeneral ward\nto death\nspline node"
 param_desc[sprintf("p_ID_node%s", 1:p_ID_noden)] <- "probability\nICU\nto death\nspline node"
@@ -388,7 +392,7 @@ df_param_desc <- data.frame(param = names(param_desc),
 save_diag <- TRUE
 if (save_diag) {
   trace_both <- plot_par(mcmc, phase = "both", display = FALSE)
-  trace_sampling <- plot_par(mcmc, phase = "sampling", display = FALSE)
+  trace_sampling <- NULL#plot_par(mcmc, phase = "sampling", display = FALSE)
 } else {
   trace_both <- NULL
   trace_sampling <- NULL
@@ -643,7 +647,7 @@ df_fit$init <- params[match(df_fit$name, names(params))]
 df_model_fit <- run_mcmc(data_list = data_list,
                          df_params = df_fit,
                          return_fit = TRUE)
-df_model_fit$x <- df_model_fit$x + node_x[1]
+#df_model_fit$by_age$x <- df_model_fit$by_age$x + node_x[1]
 
 # get sitrep into same format
 df_sitrep <- nested_to_long(sitrep_list)
@@ -659,7 +663,7 @@ df_sitrep$metric <- metric_rename[df_sitrep$metric]
 df_sitrep$value[df_sitrep$value == -1] <- NA
 
 # combine model fit with sitrep
-df_sitrep_fit <- rbind(cbind(df_model_fit[,names(df_sitrep)], type = "model"),
+df_sitrep_fit <- rbind(cbind(df_model_fit$by_age[,names(df_sitrep)], type = "model"),
                        cbind(df_sitrep, type = "data"))
 
 # get combined fit

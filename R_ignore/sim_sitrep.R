@@ -1,4 +1,6 @@
 
+library(ggplot2)
+
 set.seed(1)
 
 # logit transform
@@ -7,10 +9,10 @@ logit <- function(x, z = 1) {
 }
 
 # define true parameters
-true_params <- c(m_AL = 0.1,
+true_params <- c(m_AL = 0.001,
                  p_AI = 0.5,
                  p_AD = 0.5,
-                 m_AD = 10,
+                 m_AD = 5,
                  s_AD = 0.8,
                  m_AI = 3,
                  s_AI = 1,
@@ -51,7 +53,8 @@ true_params <- c(true_params, p_AI_node, p_AD_node, p_ID_node, m_AC_node)
 
 # define true admissions curve
 t_vec <- -15:40
-true_admissions_curve <- ceiling(1e3 * dnorm(t_vec, mean = 12, sd = 5))
+true_admissions_curve <- ceiling(1e3 * dnorm(t_vec, mean = 15, sd = 5))
+true_admissions_curve[t_vec < 1] <- 0
 
 # simulate progression
 sim <- data.frame(date_admission = rep(t_vec, times = true_admissions_curve))
@@ -85,6 +88,7 @@ sim$date_final_outcome[w2] <- sim$date_stepdown[w2] +
 
 sim$age <- sample(0:105, n_sim, replace = TRUE)
 
+
 # initialise sitrep object over all age groups
 age_lower <- c(0, 6, 18, 65, 85)
 age_upper <- c(age_lower[-1] - 1, 110)
@@ -113,10 +117,11 @@ for (age_i in seq_along(age_lower)) {
     sitrep[[age_i]]$deaths_critical[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "death" & sim_age$date_final_outcome == j)
     sitrep[[age_i]]$stepdown[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown == j)
     sitrep[[age_i]]$discharges_stepdown[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_final_outcome == j)
-    sitrep[[age_i]]$prevalence_general[i] <- sum(sim_age$date_test <= j & !sim_age$icu & sim_age$date_final_outcome >= j) +
-                                             sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown <= j & sim_age$date_final_outcome >= j)
-    sitrep[[age_i]]$prevalence_critical[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "death" & sim_age$date_final_outcome > j) +
-                                              sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown > j)
+    sitrep[[age_i]]$prevalence_general[i] <- sum(sim_age$date_test <= j & !sim_age$icu & sim_age$date_final_outcome > j) +
+      sum(sim_age$date_test <= j & sim_age$icu & sim_age$date_icu >= j) +
+      sum(sim_age$date_test <= j & sim_age$icu & sim_age$final_outcome == "discharge" & sim_age$date_stepdown <= j & sim_age$date_final_outcome >= j)
+    sitrep[[age_i]]$prevalence_critical[i] <- sum(sim_age$date_test <= j & sim_age$icu & sim_age$date_icu <= j & sim_age$final_outcome == "death" & sim_age$date_final_outcome > j) +
+      sum(sim_age$date_test <= j & sim_age$icu & sim_age$date_icu <= j & sim_age$final_outcome == "discharge" & sim_age$date_stepdown > j)
   }
   
   # clean up
@@ -144,27 +149,13 @@ age_tab <- rep(1 / 111, 111)
 age_weights <- split(age_tab, f = age_group)
 age_values <- split(seq_along(age_tab) - 1, f = age_group)
 
+# change of plan - normalise weights
+for (i in seq_along(age_weights)) {
+  age_weights[[i]] <- age_weights[[i]] / sum(age_weights[[i]])
+}
+
 # get number of rows in each sitrep
 n_date_sitrep <- length(sitrep_list[[1]][[1]][[1]])
-
-# specify x-positions (numeric dates) in admissions spline
-n_node <- 7
-node_x <- round(seq(-15, n_date_sitrep, length.out = n_node))
-
-
-
-
-
-
-
-
-plot(t_vec, true_admissions_curve)
-abline(v = node_x)
-points(node_x, true_admissions_curve[m], col = 2)
-
-
-
-
 
 # get longest interval that could possibly be required for lookup table
 lookup_max <-  n_date_sitrep - min(node_x) + 1
@@ -185,7 +176,6 @@ p_ID_noden <- length(p_ID_nodex)
 m_AC_nodex <- age_seq
 m_AC_noden <- length(m_AC_nodex)
 
-names(sitrep_list[[1]][[1]])
 
 # create final data list
 data_list <- list(sitrep = sitrep_list,
@@ -208,9 +198,7 @@ data_list <- list(sitrep = sitrep_list,
 
 # create parameters dataframe
 n_region <- length(sitrep_list)
-eg <- expand.grid(1:n_node, 1:n_region)
-df_params <- rbind(data.frame(name = sprintf("region%s_node%s", eg[,2], eg[,1]), min = 0, max = 10, init = 1, region = eg[,2]),
-                   data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
+df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = sprintf("p_AD_node%s", 1:p_AD_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = sprintf("p_ID_node%s", 1:p_ID_noden), min = -5, max = 5, init = 0, region = 0),
                    data.frame(name = "m_AI", min = 0, max = 20, init = 1, region = 0),
@@ -240,16 +228,11 @@ m <- match(names(true_params), df_params$name)
 df_params$init[m[!is.na(m)]] <- true_params[which(!is.na(m))]
 
 # set fixed parameters
-fixed_params <- setdiff(names(true_params), c("m_AD")[-1])
+fixed_params <- setdiff(names(true_params), c("m_AI", "m_AD"))
+fixed_params <- setdiff(names(true_params), names(true_params))
 m <- match(fixed_params, df_params$name)
+#m <- seq_len(nrow(df_params))
 df_params$min[m[!is.na(m)]] <- df_params$max[m[!is.na(m)]] <- df_params$init[m[!is.na(m)]]
-
-# fix regional node y values
-m <- match(node_x, t_vec)
-region_fitted <- log(true_admissions_curve[m])
-for (i in seq_along(region_fitted)) {
-  df_params$min[i] <- df_params$max[i] <- df_params$init[i] <- region_fitted[i]
-}
 
 # append update rules to data list
 data_list$update_region <- df_params$region
@@ -258,9 +241,9 @@ data_list$update_region <- df_params$region
 # Run MCMC
 
 # define MCMC parameters
-burnin <- 1e1
-samples <- 1e1
-chains <- 1
+burnin <- 1e3
+samples <- 1e3
+chains <- 2
 beta_vec <- 1
 pb_markdown <- FALSE
 
@@ -285,7 +268,7 @@ print(Sys.time() - t0)
 
 #as.data.frame(mcmc$diagnostics$mc_accept)
 plot_credible(mcmc)
-#plot_par(mcmc, show = "m_AD", phase = "both")
+plot_par(mcmc, show = "m_AI", phase = "both")
 #plot_par(mcmc, show = "scale_p_AD1", phase = "both")
 #subset(mcmc$diagnostics$mc_accept, stage == "sampling")
 
@@ -299,7 +282,6 @@ mcmc_samples <- subset(mcmc_samples_raw, select = -c(chain, rung, iteration, sta
 
 # create parameter descriptions dataframe
 param_desc <- setNames(rep(NA, ncol(mcmc_samples)), names(mcmc_samples))
-param_desc[sprintf("region%s_node%s", eg[,2], eg[,1])] <- sprintf("spline t%s", 1:n_node)
 param_desc[sprintf("p_AI_node%s", 1:p_AI_noden)] <- "probability\nadmission\nto ICU\nspline node"
 param_desc[sprintf("p_AD_node%s", 1:p_AD_noden)] <- "probability\ngeneral ward\nto death\nspline node"
 param_desc[sprintf("p_ID_node%s", 1:p_ID_noden)] <- "probability\nICU\nto death\nspline node"
@@ -598,7 +580,6 @@ df_fit$init <- params[match(df_fit$name, names(params))]
 df_model_fit <- run_mcmc(data_list = data_list,
                          df_params = df_fit,
                          return_fit = TRUE)
-df_model_fit$by_age$x <- df_model_fit$by_age$x + node_x[1]
 
 # get sitrep into same format
 df_sitrep <- nested_to_long(sitrep_list)
