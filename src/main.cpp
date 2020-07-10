@@ -45,9 +45,7 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   if (s.return_fit) {
     
     // return model fit
-    return Rcpp::List::create(Rcpp::Named("admissions_spline") = particle_vec[0].admissions_spline,
-                              Rcpp::Named("admission_incidence") = particle_vec[0].admission_incidence,
-                              Rcpp::Named("deaths_incidence") = particle_vec[0].deaths_incidence,
+    return Rcpp::List::create(Rcpp::Named("deaths_incidence") = particle_vec[0].deaths_incidence,
                               Rcpp::Named("discharges_incidence") = particle_vec[0].discharges_incidence,
                               Rcpp::Named("general_prevalence") = particle_vec[0].general_prevalence,
                               Rcpp::Named("critical_prevalence") = particle_vec[0].critical_prevalence);
@@ -115,8 +113,8 @@ Rcpp::List run_mcmc_cpp(Rcpp::List args) {
   
   // print phase diagnostics
   if (!s.silent) {
-    double accept_rate = particle_vec[rungs-1].accept_count/double(s.burnin*d);
-    Rcpp::Rcout << "acceptance rate: " << round(accept_rate*1000)/10.0 << "%\n";
+    double accept_rate = particle_vec[rungs-1].accept_count / double(s.burnin*d);
+    Rcpp::Rcout << "acceptance rate: " << round(accept_rate*1000) / 10.0 << "%\n";
   }
   
   

@@ -20,18 +20,10 @@ public:
   // local copies of some parameters for convenience
   int d;
   
-  // spline parameters
-  std::vector<std::vector<double>> node_y;
-  
   // rescaling parameters
   std::vector<double> scale_p_AI;
   std::vector<double> scale_p_AD;
   std::vector<double> scale_p_ID;
-  
-  // lab test weights
-  std::vector<double> pos_on_day;
-  std::vector<double> neg_by_day;
-  std::vector<double> pos_by_day;
   
   // vector over ages for cubic splines
   std::vector<double> age_seq;
@@ -49,8 +41,6 @@ public:
   std::vector<double> m_AC;
   
   // objects for storing progression over all stratification
-  std::vector<std::vector<double>> admissions_spline;
-  std::vector<std::vector<std::vector<double>>> admission_incidence;
   std::vector<std::vector<std::vector<double>>> deaths_incidence;
   std::vector<std::vector<std::vector<double>>> discharges_incidence;
   std::vector<std::vector<std::vector<double>>> general_prevalence;

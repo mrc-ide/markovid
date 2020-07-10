@@ -29,9 +29,6 @@ void System::load(Rcpp::List args) {
   age_weights = rcpp_to_matrix_double(data_list["age_weights"]);
   age_values = rcpp_to_matrix_int(data_list["age_values"]);
   
-  // update rules
-  update_region = rcpp_to_vector_int(data_list["update_region"]);
-  
   // age splines
   p_AI_nodex = rcpp_to_vector_double(data_list["p_AI_nodex"]);
   p_AI_noden = p_AI_nodex.size();
@@ -97,7 +94,8 @@ void System::load(Rcpp::List args) {
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
   
-  // lookup tables
+#ifdef FOO
+  // populate lookup tables
   int n_m = 2001;
   int n_s = 101;
   gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
@@ -114,5 +112,6 @@ void System::load(Rcpp::List args) {
       }
     }
   }
+#endif
   
 }
