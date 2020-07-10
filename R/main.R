@@ -33,6 +33,7 @@ run_mcmc <- function(data_list,
                      silent = FALSE,
                      return_fit = FALSE) {
   
+  
   # avoid "no visible binding" note
   stage <- value <- chain <- link <- NULL
   
@@ -116,26 +117,18 @@ run_mcmc <- function(data_list,
   
   if (return_fit) {
     
-    # extract elements that are not defined over ages
-    admissions_spline <- output_raw[[1]]$admissions_spline
-    
     # drop elements that are not defined over ages
     raw_names <- names(output_raw[[1]])
-    output_raw[[1]] <- output_raw[[1]][setdiff(raw_names, "admissions_spline")]
     
     # get remaining into long form
-    by_age <- nested_to_long(output_raw[[1]])
-    names(by_age) <- c("x", "value", "age", "region", "metric")
-    by_age$metric <- c("admission_incidence",
-                       "deaths_incidence",
-                       "discharges_incidence",
-                       "general_prevalence",
-                       "critical_prevalence")[by_age$metric]
+    ret <- nested_to_long(output_raw[[1]])
+    names(ret) <- c("x", "value", "age", "region", "metric")
+    ret$metric <- c("deaths_incidence",
+                    "discharges_incidence",
+                    "general_prevalence",
+                    "critical_prevalence")[ret$metric]
     
-    ret <- list(admissions_spline = admissions_spline,
-                by_age = by_age)
     return(ret)
-    
   }
   
   # ---------- process output ----------

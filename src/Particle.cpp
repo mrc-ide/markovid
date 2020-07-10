@@ -13,18 +13,10 @@ void Particle::init(System &s) {
   // parameters
   d = s_ptr->d;
   
-  // spline parameters
-  //node_y = vector<vector<double>>(s_ptr->n_region, vector<double>(s_ptr->n_node));
-  
   // rescaling parameters
   scale_p_AI = vector<double>(s_ptr->n_region);
   scale_p_AD = vector<double>(s_ptr->n_region);
   scale_p_ID = vector<double>(s_ptr->n_region);
-  
-  // lab test weights
-  pos_on_day = vector<double>(s_ptr->n_date_sitrep);
-  neg_by_day = vector<double>(s_ptr->n_date_sitrep);
-  pos_by_day = vector<double>(s_ptr->n_date_sitrep);
   
   // vector over ages for cubic splines
   age_seq = vector<double>(s_ptr->max_indlevel_age + 1);
@@ -45,8 +37,6 @@ void Particle::init(System &s) {
   m_AC = vector<double>(s_ptr->max_indlevel_age + 1);
   
   // objects for storing progression
-  admissions_spline = vector<vector<double>>(s_ptr->n_region, vector<double>(s_ptr->n_date_sitrep));
-  admission_incidence = vector<vector<vector<double>>>(s_ptr->n_region, vector<vector<double>>(s_ptr->n_age_sitrep, vector<double>(s_ptr->n_date_sitrep)));
   deaths_incidence = vector<vector<vector<double>>>(s_ptr->n_region, vector<vector<double>>(s_ptr->n_age_sitrep, vector<double>(s_ptr->n_date_sitrep)));
   discharges_incidence = vector<vector<vector<double>>>(s_ptr->n_region, vector<vector<double>>(s_ptr->n_age_sitrep, vector<double>(s_ptr->n_date_sitrep)));
   general_prevalence = vector<vector<vector<double>>>(s_ptr->n_region, vector<vector<double>>(s_ptr->n_age_sitrep, vector<double>(s_ptr->n_date_sitrep)));
@@ -59,9 +49,6 @@ void Particle::init(System &s) {
   delta_open_general = std::vector<double>(s_ptr->n_date_sitrep);
   delta_deaths_critical = std::vector<double>(s_ptr->n_date_sitrep);
   delta_open_critical = std::vector<double>(s_ptr->n_date_sitrep);
-  pos_on_day = std::vector<double>(s_ptr->n_date_sitrep);
-  pos_by_day = std::vector<double>(s_ptr->n_date_sitrep);
-  neg_by_day = std::vector<double>(s_ptr->n_date_sitrep);
   
   // theta is the parameter vector in natural space
   theta = s_ptr->theta_init;
@@ -87,9 +74,6 @@ void Particle::init(System &s) {
   loglike_prop = 0;
   logprior = get_logprior(theta, 0);
   logprior_prop = 0;
-  
-  //print(loglike);
-  //Rcpp::stop("header");
   
   // acceptance rates
   accept_count = 0;
@@ -282,9 +266,6 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   double c_ID = theta[pi++];
   double c_IS = theta[pi++];
   
-  // admission to labtest
-  double m_AL = theta[pi++];
-  
   // rescaling parameters
   for (int i = 0; i < s_ptr->n_region; ++i) {
     scale_p_AI[i] = theta[pi++];
@@ -295,9 +276,6 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   for (int i = 0; i < s_ptr->n_region; ++i) {
     scale_p_ID[i] = theta[pi++];
   }
-  
-  // get update rules
-  int update_region = s_ptr->update_region[theta_i];
   
   // initialise loglikelihood
   double ret = 0.0;
@@ -332,28 +310,14 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   // ----------------------------------------------------------------
   // update objects used when calculating sitrep likelihood
   
-  // calculate lab test weights
-  for (unsigned int i = 0; i < neg_by_day.size(); ++i) {
-    pos_on_day[i] = 0;//get_delay_density(i, m_AL, 1.0);
-    neg_by_day[i] = 0;//get_delay_tail(i, m_AL, 1.0);
-    pos_by_day[i] = 1.0;// - neg_by_day[i];
-  }
-  pos_on_day[0] = 1.0;
-  
   // loop through sitrep regions
   for (int region_i = 0; region_i < s_ptr->n_region; ++region_i) {
     //continue;
-    
-    // skip based on update rules
-    if (update_region != (region_i + 1) && update_region != 0) {
-      continue;
-    }
     
     // loop through sitrep age groups
     for (int age_sitrep = 0; age_sitrep < s_ptr->n_age_sitrep; ++age_sitrep) {
       
       // reset progression objects
-      fill(admission_incidence[region_i][age_sitrep].begin(), admission_incidence[region_i][age_sitrep].end(), 0.0);
       fill(deaths_incidence[region_i][age_sitrep].begin(), deaths_incidence[region_i][age_sitrep].end(), 0.0);
       fill(discharges_incidence[region_i][age_sitrep].begin(), discharges_incidence[region_i][age_sitrep].end(), 0.0);
       fill(general_prevalence[region_i][age_sitrep].begin(), general_prevalence[region_i][age_sitrep].end(), 0.0);
@@ -369,7 +333,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         // get age-specific parameters
         double p_AI_j = p_AI[age] * scale_p_AI[region_i];
         double p_AD_j = p_AD[age] * scale_p_AD[region_i];
-        double p_ID_j = p_ID[age];// * scale_p_ID[region_i];
+        double p_ID_j = p_ID[age] * scale_p_ID[region_i];
         double m_AC_j = m_AC[age];
         
         // check scaling doesn't push probabilities above 1
@@ -392,8 +356,6 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
                                    (1 - p_ID_j) * get_delay_tail(i, m_IS, s_IS);
         }
         
-        //print_vector(delta_open_general);
-        
         // store incidence in stepup and stepdown care
         vector<double> stepup(s_ptr->n_date_sitrep);
         vector<double> stepdown(s_ptr->n_date_sitrep);
@@ -402,10 +364,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         for (int i = 0; i < s_ptr->n_date_sitrep; ++i) {
           
           // get true admissions on this day from spline
-          //double true_admissions = weight * admissions_spline[region_i][i];
           double true_admissions = weight * s_ptr->daily_influx[region_i][age_sitrep][i];
-          
-          //print(i, weight, true_admissions);
           
           // project true admissions out over future days
           for (int j = i; j < s_ptr->n_date_sitrep; ++j) {
@@ -427,23 +386,13 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
             double discharges_stepdown = stepdown[i] * get_delay_density(j - i, m_SC, s_SC);
             double open_stepdown = stepdown[i] * get_delay_tail(j - i, m_SC, s_SC);
             
-            // delay from admission to testing
-            double pos_by_day_j = pos_by_day[j - i];
-            double pos_on_day_j = pos_on_day[j - i];
-            
-            //print(i, j, pos_on_day_j, open_general, open_stepdown, open_critical);
-            
-            // incidence of observed admission
-            //admission_incidence[region_i][age_sitrep][j] += pos_on_day_j * (open_general + open_critical + open_stepdown);
-            admission_incidence[region_i][age_sitrep][j] += pos_on_day_j * true_admissions;
-            
             // incidence of death and discharge
-            deaths_incidence[region_i][age_sitrep][j] += pos_by_day_j * (deaths_general + deaths_critical);
-            discharges_incidence[region_i][age_sitrep][j] += pos_by_day_j * (discharges_general + discharges_stepdown);
+            deaths_incidence[region_i][age_sitrep][j] += deaths_general + deaths_critical;
+            discharges_incidence[region_i][age_sitrep][j] += discharges_general + discharges_stepdown;
             
             // prevalence in general and critical beds
-            general_prevalence[region_i][age_sitrep][j] += pos_by_day_j * (open_general + open_stepdown);
-            critical_prevalence[region_i][age_sitrep][j] += pos_by_day_j * open_critical;
+            general_prevalence[region_i][age_sitrep][j] += open_general + open_stepdown;
+            critical_prevalence[region_i][age_sitrep][j] += open_critical;
             
           }  // end j loop through spline days
           
@@ -503,15 +452,12 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     
     // if recorded ICU stay
     if (s_ptr->icu[i] == 1) {
-      //continue;
       
       // admission to icu
       {
         int delta = s_ptr->date_icu[i] - s_ptr->date_admission[i];
         ret += log( q_AI * get_delay_density(delta, m_AI, s_AI) );
       }
-      
-      //continue;
       
       // if no recorded stepdown stay
       if (s_ptr->stepdown[i] == 0) {
@@ -562,13 +508,9 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   // ----------------------------------------------------------------
   // SitRep component of likelihood
   
-  //print(ret);
-  
   // loop through regions
   for (int region_i = 0; region_i < s_ptr->n_region; ++region_i) {
     //continue;
-    
-    double eps = 0.001;
     
     // loop through sitrep age groups
     for (int age_i = 0; age_i < s_ptr->n_age_sitrep; ++age_i) {
@@ -576,55 +518,25 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
       // sum log-likelihood over all data
       for (int i = 0; i < s_ptr->n_date_sitrep; ++i) {
         
-        //print(age_i, i);
-        
-        // adjust for spline offset
-        int j = i;// + 15;
-        
-        //double k = 100.0;
-        
-        // new admissions
-        if (s_ptr->daily_influx[region_i][age_i][i] != -1) {
-          //ret += R::dpois(s_ptr->daily_influx[region_i][age_i][i], admission_incidence[region_i][age_i][j], true);
-          //double p = k / (k + admission_incidence[region_i][age_i][j]);
-          //ret += R::dnbinom(s_ptr->daily_influx[region_i][age_i][i], k, p, true);
-        }
-        
         // new deaths
         if (s_ptr->new_deaths[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], deaths_incidence[region_i][age_i][j] + eps, true);
-          //double p = k / (k + deaths_incidence[region_i][age_i][j]);
-          //ret += R::dnbinom(s_ptr->new_deaths[region_i][age_i][i], k, p, true);
+          ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], deaths_incidence[region_i][age_i][i], true);
         }
-        //print("foo1", ret);
         
         // new discharges
         if (s_ptr->new_discharges[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], discharges_incidence[region_i][age_i][j] + eps, true);
-          //double p = k / (k + discharges_incidence[region_i][age_i][j]);
-          //ret += R::dnbinom(s_ptr->new_discharges[region_i][age_i][i], k, p, true);
+          ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], discharges_incidence[region_i][age_i][i], true);
         }
-        //print("foo2", ret);
         
         // prevalence in general beds
         if (s_ptr->total_general[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][j] + eps, true);
-          //double p = k / (k + general_prevalence[region_i][age_i][j]);
-          //ret += R::dnbinom(s_ptr->total_general[region_i][age_i][i], k, p, true);
+          ret += R::dpois(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][i], true);
         }
-        //print("foo3", ret);
-        //if (!isfinite(ret)) {
-        //  print(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][j]);
-        //  Rcpp::stop("bar3");
-        //}
         
         // prevalence in critical beds
         if (s_ptr->total_critical[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], critical_prevalence[region_i][age_i][j] + eps, true);
-          //double p = k / (k + critical_prevalence[region_i][age_i][j]);
-          //ret += R::dnbinom(s_ptr->total_critical[region_i][age_i][i], k, p, true);
+          ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], critical_prevalence[region_i][age_i][i], true);
         }
-        //print("foo4", ret);
         
       }
       
@@ -635,12 +547,8 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   // ----------------------------------------------------------------
   // return
   
-  //foobar();
-  //print(ret);
-  
   // catch underflow
   if (!std::isfinite(ret)) {
-    //print("catch");
     ret = -DBL_MAX/100.0;
   }
   
