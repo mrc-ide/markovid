@@ -94,7 +94,6 @@ void System::load(Rcpp::List args) {
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
   
-#ifdef FOO
   // populate lookup tables
   int n_m = 2001;
   int n_s = 101;
@@ -112,6 +111,5 @@ void System::load(Rcpp::List args) {
       }
     }
   }
-#endif
   
 }

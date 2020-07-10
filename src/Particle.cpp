@@ -425,6 +425,13 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     double q_AD = p_AD[age_i];
     double q_ID = p_ID[age_i];
     
+    // check for bad values
+    if (q_AI < 0.0 | q_AI > 1.0 | q_AD < 0.0 | q_AD > 1.0 | q_ID < 0.0 | q_ID > 1.0) {
+      Rcpp::stop("individual-level probability outside [0,1] range");
+    }
+    
+    double z1, z2, z3, z4, z5, z6, z7, z8, z9;
+    
     // if no recorded ICU stay
     if (s_ptr->icu[i] == 0) {
       
@@ -520,22 +527,38 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         
         // new deaths
         if (s_ptr->new_deaths[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], deaths_incidence[region_i][age_i][i], true);
+          double lambda = deaths_incidence[region_i][age_i][i];
+          if (lambda < 0) {
+            lambda = 0.001;
+          }
+          ret += R::dpois(s_ptr->new_deaths[region_i][age_i][i], lambda, true);
         }
         
         // new discharges
         if (s_ptr->new_discharges[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], discharges_incidence[region_i][age_i][i], true);
+          double lambda = discharges_incidence[region_i][age_i][i];
+          if (lambda < 0) {
+            lambda = 0.001;
+          }
+          ret += R::dpois(s_ptr->new_discharges[region_i][age_i][i], lambda, true);
         }
         
         // prevalence in general beds
         if (s_ptr->total_general[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->total_general[region_i][age_i][i], general_prevalence[region_i][age_i][i], true);
+          double lambda = general_prevalence[region_i][age_i][i];
+          if (lambda < 0) {
+            lambda = 0.001;
+          }
+          ret += R::dpois(s_ptr->total_general[region_i][age_i][i], lambda, true);
         }
         
         // prevalence in critical beds
         if (s_ptr->total_critical[region_i][age_i][i] != -1) {
-          ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], critical_prevalence[region_i][age_i][i], true);
+          double lambda = critical_prevalence[region_i][age_i][i];
+          if (lambda < 0) {
+            lambda = 0.001;
+          }
+          ret += R::dpois(s_ptr->total_critical[region_i][age_i][i], lambda, true);
         }
         
       }
@@ -565,7 +588,7 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
 // get density of delay distribution on day x
 double Particle::get_delay_density(int x, double m, double s) {
   double ret;
-  bool use_lookup = false;
+  bool use_lookup = true;
   if (use_lookup) {
     double m_index = floor(m * 100);
     double s_index = floor(s * 100);
@@ -574,8 +597,12 @@ double Particle::get_delay_density(int x, double m, double s) {
     ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, true, false) -
           R::pgamma(x, 1.0/(s*s), m*s*s, true, false) + 0.0001;
   }
+  if (ret <= 0.0) {
+    //Rcpp::stop("get_delay_density less than 0.0");
+    ret = UNDERFLO_DOUBLE;
+  }
   if (ret > 1.0) {
-    ret = 1.0;
+    Rcpp::stop("get_delay_density greater than 1.0");
   }
   return ret;
 }
@@ -584,7 +611,7 @@ double Particle::get_delay_density(int x, double m, double s) {
 // get tail of delay distribution past day x
 double Particle::get_delay_tail(int x, double m, double s) {
   double ret;
-  bool use_lookup = false;
+  bool use_lookup = true;
   if (use_lookup) {
     double m_index = floor(m * 100);
     double s_index = floor(s * 100);
@@ -592,8 +619,12 @@ double Particle::get_delay_tail(int x, double m, double s) {
   } else {
     ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, false, false);
   }
+  if (ret <= 0.0) {
+    //Rcpp::stop("get_delay_tail less than 0.0");
+    ret = UNDERFLO_DOUBLE;
+  }
   if (ret > 1.0) {
-    ret = 1.0;
+    Rcpp::stop("get_delay_tail greater than 1.0");
   }
   return ret;
 }
