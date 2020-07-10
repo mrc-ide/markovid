@@ -26,9 +26,6 @@ public:
   std::vector< std::vector<double> > age_weights;
   std::vector< std::vector<int> > age_values;
   
-  // update rules
-  std::vector<int> update_region;
-  
   // age splines
   std::vector<double> p_AI_nodex;
   int p_AI_noden;
