@@ -18,6 +18,10 @@
 #' @param return_fit If TRUE then MCMC is not run, instead the model fit is
 #'   returned under the initial parameter values specified in the parameters
 #'   dataframe.
+#' @param n_threads Number of threads to use if running in
+#'   parallel. Do not exceed the number of cores available on the
+#'   machine. Has no effect if markovid was not compiled with openmp
+#'   support.
 #'
 #' @import ggplot2
 #' @importFrom stats prcomp
@@ -29,6 +33,7 @@ run_mcmc <- function(data_list,
                      samples = 1e4,
                      beta_vec = 1,
                      chains = 1,
+                     n_threads = 1,
                      pb_markdown = FALSE,
                      silent = FALSE,
                      return_fit = FALSE) {
@@ -89,6 +94,7 @@ run_mcmc <- function(data_list,
                       samples = samples,
                       beta_vec = beta_vec,
                       pb_markdown = pb_markdown,
+                      n_threads = n_threads,
                       silent = silent,
                       return_fit = return_fit)
   

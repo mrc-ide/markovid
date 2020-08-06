@@ -93,6 +93,12 @@ void System::load(Rcpp::List args) {
   // misc parameters
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
+  n_threads = rcpp_to_int(args_params["n_threads"]);
+  #ifndef _OPENMP
+  if (n_threads > 1) {
+    Rcpp::Rcout << "n_threads has no effect as openmp not available\n";
+  }
+  #endif
   
   // populate lookup tables
   int n_m = 2001;
