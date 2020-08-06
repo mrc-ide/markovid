@@ -343,9 +343,10 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
         double m_AC_j = m_AC[age];
         
         // check scaling doesn't push probabilities above 1
-        if (p_AI_j > 1.0 || p_AD_j > 1.0 || p_ID_j > 1.0) {
-          return -DBL_MAX/100.0;
-        }
+        // to be compatible with openmp, this needs to be done outside of this loop.
+        // if (p_AI_j > 1.0 || p_AD_j > 1.0 || p_ID_j > 1.0) {
+        //   return -DBL_MAX/100.0;
+        // }
         
         // calculate unscaled progression vectors
         for (int i = 0; i < s_ptr->n_date_sitrep; ++i) {
