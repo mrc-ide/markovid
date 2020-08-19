@@ -37,8 +37,21 @@ public:
   std::vector<double> p_ID;
   
   // mean durations
+  double m_AI;
+  double m_AD;
   std::vector<double> m_AC_node;
   std::vector<double> m_AC;
+  double m_ID;
+  double m_IS;
+  double m_SC;
+  
+  // coefficients of variation of durations
+  double s_AI;
+  double s_AD;
+  double s_AC;
+  double s_ID;
+  double s_IS;
+  double s_SC;
   
   // objects for storing progression over all stratification
   std::vector<std::vector<std::vector<double>>> deaths_incidence;
@@ -46,13 +59,13 @@ public:
   std::vector<std::vector<std::vector<double>>> general_prevalence;
   std::vector<std::vector<std::vector<double>>> critical_prevalence;
   
-  std::vector<double> delta_stepup;
-  std::vector<double> delta_stepdown;
-  std::vector<double> delta_deaths_general;
-  std::vector<double> delta_discharges_general;
-  std::vector<double> delta_open_general;
-  std::vector<double> delta_deaths_critical;
-  std::vector<double> delta_open_critical;
+  std::vector<std::vector<double>> delta_stepup;
+  std::vector<std::vector<double>> delta_stepdown;
+  std::vector<std::vector<double>> delta_deaths_general;
+  std::vector<std::vector<double>> delta_discharges_general;
+  std::vector<std::vector<double>> delta_open_general;
+  std::vector<std::vector<double>> delta_deaths_critical;
+  std::vector<std::vector<double>> delta_open_critical;
   
   // theta is the parameter vector in natural space
   std::vector<double> theta;
@@ -87,6 +100,7 @@ public:
   
   // update theta[i] via univariate Metropolis-Hastings
   void update(double beta);
+  void update_region(int region_i);
   
   // loglikelihood and logprior
   double get_loglike(std::vector<double> &theta, int theta_i, bool quick_exit = false);

@@ -11,6 +11,8 @@ void System::load(Rcpp::List args) {
   Rcpp::List args_functions = args["args_functions"];
   Rcpp::List args_progress = args["args_progress"];
   Rcpp::List args_progress_burnin = args_progress["pb_burnin"];
+  Rcpp::List args_lookup_density = args["args_lookup_density"];
+  Rcpp::List args_lookup_tail = args["args_lookup_tail"];
   
   // option to return model fit
   return_fit = rcpp_to_bool(args_params["return_fit"]);
@@ -93,23 +95,43 @@ void System::load(Rcpp::List args) {
   // misc parameters
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
+  n_threads = rcpp_to_int(args_params["n_threads"]);
+  #ifndef _OPENMP
+  if (n_threads > 1) {
+    Rcpp::Rcout << "n_threads has no effect as openmp not available\n";
+  }
+  #endif
   
   // populate lookup tables
-  int n_m = 2001;
-  int n_s = 101;
-  gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
-  gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
-  print("initializing lookup tables");
+  int n_m = args_lookup_density.size();
+  gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
+  gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
   for (int i = 0; i < n_m; ++i) {
-    double m = double(i) / 100.0;
-    for (int j = 0; j < n_s; ++j) {
-      double s = double(j) / 100.0;
-      for (int k = 0; k < lookup_max; ++k) {
-        gamma_density_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, true, false) -
-                                        R::pgamma(k, 1.0/(s*s), m*s*s, true, false);
-        gamma_tail_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, false, false);
-      }
-    }
+    gamma_density_lookup[i] = rcpp_to_matrix_double(args_lookup_density[i]);
+    gamma_tail_lookup[i] = rcpp_to_matrix_double(args_lookup_tail[i]);
   }
+  
+  //print_vector(gamma_tail_lookup[100][100]);
+  //Rcpp::stop("goobar");
+  
+  //std::vector< std::vector<double> > z = rcpp_to_matrix_double(args_lookup_density[0]);
+  //Rcpp::stop("foobar");
+  
+  //int n_m = 2001;
+  //int n_s = 101;
+  //gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
+  //gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
+  //print("initializing lookup tables");
+  //for (int i = 0; i < n_m; ++i) {
+  //  double m = double(i) / 100.0;
+  //  for (int j = 0; j < n_s; ++j) {
+  //    double s = double(j) / 100.0;
+  //    for (int k = 0; k < lookup_max; ++k) {
+  //      gamma_density_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, true, false) -
+  //                                      R::pgamma(k, 1.0/(s*s), m*s*s, true, false);
+  //      gamma_tail_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, false, false);
+  //    }
+  //  }
+  //}
   
 }

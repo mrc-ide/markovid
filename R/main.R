@@ -18,6 +18,10 @@
 #' @param return_fit If TRUE then MCMC is not run, instead the model fit is
 #'   returned under the initial parameter values specified in the parameters
 #'   dataframe.
+#' @param n_threads Number of threads to use if running in
+#'   parallel. Do not exceed the number of cores available on the
+#'   machine. Has no effect if markovid was not compiled with openmp
+#'   support.
 #'
 #' @import ggplot2
 #' @importFrom stats prcomp
@@ -29,10 +33,10 @@ run_mcmc <- function(data_list,
                      samples = 1e4,
                      beta_vec = 1,
                      chains = 1,
+                     n_threads = 1,
                      pb_markdown = FALSE,
                      silent = FALSE,
                      return_fit = FALSE) {
-  
   
   # avoid "no visible binding" note
   stage <- value <- chain <- link <- NULL
@@ -75,6 +79,12 @@ run_mcmc <- function(data_list,
   # flag to skip over fixed parameters
   skip_param <- (df_params$min == df_params$max)
   
+  # read in lookup tables
+  lookup_list <- get_lookup_density()
+  lookup_density <- lookup_list$gamma_density
+  lookup_tail <- lookup_list$gamma_tail
+  #lookup_density2 <- readRDS(system.file("extdata", "gamma_density.rds", package = "markovid", mustWork = TRUE))
+  #lookup_tail2 <- readRDS(system.file("extdata", "gamma_tail.rds", package = "markovid", mustWork = TRUE))
   
   # ---------- define argument lists ----------
   
@@ -89,6 +99,7 @@ run_mcmc <- function(data_list,
                       samples = samples,
                       beta_vec = beta_vec,
                       pb_markdown = pb_markdown,
+                      n_threads = n_threads,
                       silent = silent,
                       return_fit = return_fit)
   
@@ -98,7 +109,9 @@ run_mcmc <- function(data_list,
   
   # complete list of arguments
   args <- list(args_params = args_params,
-               args_functions = args_functions)
+               args_functions = args_functions,
+               args_lookup_density = lookup_density,
+               args_lookup_tail = lookup_tail)
   
   # replicate arguments over chains
   parallel_args <- replicate(chains, args, simplify = FALSE)
@@ -245,5 +258,55 @@ nested_to_long <- function(nl) {
     }, seq_along(nl[[k]]), SIMPLIFY = FALSE)), k = k)
   }, seq_along(nl), SIMPLIFY = FALSE))
   
+}
+
+# ------------------------------------------------------------------
+# calculate lookup table first time only
+#' @noRd
+get_lookup_density <- function() {
+  
+  # compute lookup if it does not already exist
+  if (is.null(cache$lookup_density)) {
+    message("creating lookup tables. This takes a long time the first time this function is used, and is faster thereafter")
+    
+    # define vectors over which to create lookup
+    mvec <- seq(0, 20, 0.01)
+    svec <- seq(0, 1, 0.01)
+    kvec <- 0:100
+    
+    # create matrices from marginal vectors
+    kmat <- matrix(rep(kvec, each = length(svec)), length(svec))
+    smat <- output <- matrix(rep(svec, length(kvec)), length(svec))
+    
+    # save values into list
+    gamma_density <- gamma_tail <- list()
+    for (i in seq_along(mvec)) {
+      m <- mvec[i]
+      
+      # calculate gamma density and gamma tail
+      gamma_density[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE) -
+                                             pgamma(kmat, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE))
+      gamma_tail[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = 1/smat^2, scale = m*smat^2, lower.tail = FALSE))
+      
+      # replace NaN with 0
+      gamma_density[[i]][is.na(gamma_density[[i]])] <- 0
+      gamma_tail[[i]][is.na(gamma_tail[[i]])] <- 0
+      
+      # add tiny value to buffer against underflow
+      gamma_density[[i]] <- gamma_density[[i]] + 1e-200
+      gamma_tail[[i]] <- gamma_tail[[i]] + 1e-200
+      
+      # split into nested lists
+      gamma_density[[i]] <- split(gamma_density[[i]], f = row(gamma_density[[i]]))
+      gamma_tail[[i]] <- split(gamma_tail[[i]], f = row(gamma_tail[[i]]))
+      
+    }
+    
+    # store in cache
+    cache$lookup_density <- list(gamma_density = gamma_density,
+                                 gamma_tail = gamma_tail)
+  }
+  
+  cache$lookup_density
 }
 
