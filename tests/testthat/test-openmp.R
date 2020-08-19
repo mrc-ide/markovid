@@ -21,7 +21,7 @@ test_that("output is identical with vs without multi-threading", {
   sitrep_lower = c(0, 6, 18, 65, 85, Inf)
   sitrep_upper = c(sitrep_lower[-1] - 1, 110)
   age_group <- cut(0:110, breaks = sitrep_lower, right = FALSE)
-  age_tab <- tabulate(indlevel$age + 1, nbins = 111)
+  age_tab <- tabulate(indlevel_list$age + 1, nbins = 111)
   age_weights <- split(age_tab, f = age_group)
   age_values <- split(seq_along(age_tab) - 1, f = age_group)
   
@@ -121,8 +121,8 @@ test_that("output is identical with vs without multi-threading", {
   # Run MCMC
   
   # define MCMC parameters
-  burnin <- 20
-  samples <- 20
+  burnin <- 10
+  samples <- 10
   chains <- 1
   beta_vec <- 1
   pb_markdown <- FALSE
@@ -153,7 +153,7 @@ test_that("output is identical with vs without multi-threading", {
                               chains = chains,
                               beta_vec = 1,
                               pb_markdown = pb_markdown,
-                              n_threads = 2)
+                              n_threads = 10)
   
   print(Sys.time() - t0)
   
