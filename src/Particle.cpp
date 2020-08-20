@@ -496,7 +496,12 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
 void Particle::update_region(int region_i) {
   
   //get thread index
+#ifdef _OPENMP
   int thread_idx = omp_get_thread_num();
+#else
+  int thread_idx = 0;
+#endif
+
   //print(thread_idx);
   
   // loop through sitrep age groups
