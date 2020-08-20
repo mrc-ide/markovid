@@ -63,6 +63,10 @@ run_mcmc <- function(data_list,
   assert_single_logical(pb_markdown)
   assert_single_logical(silent)
   
+  # check that maximum lookup value does not exceed table dimensions
+  if (data_list$lookup_max >= 100) {
+    stop("maximum lookup value greater than size of table")
+  }
   
   # ---------- pre-processing ----------
   
