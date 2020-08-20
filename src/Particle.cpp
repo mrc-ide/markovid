@@ -314,8 +314,10 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
   // update objects used when calculating sitrep likelihood
   
   // loop through sitrep regions
+#ifdef _OPENMP
   const size_t n_threads = s_ptr->n_threads;
 #pragma omp parallel for schedule(static) num_threads(n_threads)
+#endif
   for (int region_i = 0; region_i < s_ptr->n_region; ++region_i) {
     update_region(region_i);
   }
