@@ -11,6 +11,7 @@ run_mcmc(
   samples = 10000,
   beta_vec = 1,
   chains = 1,
+  n_threads = 1,
   pb_markdown = FALSE,
   silent = FALSE,
   return_fit = FALSE
@@ -30,6 +31,11 @@ at 1 then thermodynamic MCMC is effectively turned off and this simplifies
 to ordinary MCMC.}
 
 \item{chains}{Independent MCMC chains.}
+
+\item{n_threads}{Number of threads to use if running in
+parallel. Do not exceed the number of cores available on the
+machine. Has no effect if markovid was not compiled with openmp
+support.}
 
 \item{pb_markdown}{If TRUE then run in markdown safe mode.}
 

@@ -78,6 +78,8 @@ public:
   // lookup tables
   std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
   std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
+
+  size_t n_threads;
   
   
   // PUBLIC FUNCTIONS
