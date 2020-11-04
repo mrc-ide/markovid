@@ -13,15 +13,17 @@
 #'   at 1 then thermodynamic MCMC is effectively turned off and this simplifies
 #'   to ordinary MCMC.
 #' @param chains Independent MCMC chains.
+#' @param n_threads Number of threads to use if running in
+#'   parallel. Do not exceed the number of cores available on the
+#'   machine. Has no effect if markovid was not compiled with openmp
+#'   support.
 #' @param pb_markdown If TRUE then run in markdown safe mode.
 #' @param silent If TRUE then console output is suppressed.
 #' @param return_fit If TRUE then MCMC is not run, instead the model fit is
 #'   returned under the initial parameter values specified in the parameters
 #'   dataframe.
-#' @param n_threads Number of threads to use if running in
-#'   parallel. Do not exceed the number of cores available on the
-#'   machine. Has no effect if markovid was not compiled with openmp
-#'   support.
+#' @param sitrep_loglike If TRUE then the SitRep log-likelihood is included in
+#'   the overall log-likelihood.
 #'
 #' @import ggplot2
 #' @importFrom stats prcomp
@@ -36,7 +38,8 @@ run_mcmc <- function(data_list,
                      n_threads = 1,
                      pb_markdown = FALSE,
                      silent = FALSE,
-                     return_fit = FALSE) {
+                     return_fit = FALSE,
+                     sitrep_loglike = TRUE) {
   
   # avoid "no visible binding" note
   stage <- value <- chain <- link <- NULL
@@ -62,10 +65,12 @@ run_mcmc <- function(data_list,
   # check misc parameters
   assert_single_logical(pb_markdown)
   assert_single_logical(silent)
+  assert_single_logical(return_fit)
+  assert_single_logical(sitrep_loglike)
   
   # check that maximum lookup value does not exceed table dimensions
   if (data_list$lookup_max >= 100) {
-    stop("maximum lookup value greater than size of table")
+    #stop("maximum lookup value greater than size of table")
   }
   
   # ---------- pre-processing ----------
@@ -87,8 +92,7 @@ run_mcmc <- function(data_list,
   lookup_list <- get_lookup_density()
   lookup_density <- lookup_list$gamma_density
   lookup_tail <- lookup_list$gamma_tail
-  #lookup_density2 <- readRDS(system.file("extdata", "gamma_density.rds", package = "markovid", mustWork = TRUE))
-  #lookup_tail2 <- readRDS(system.file("extdata", "gamma_tail.rds", package = "markovid", mustWork = TRUE))
+  
   
   # ---------- define argument lists ----------
   
@@ -105,7 +109,8 @@ run_mcmc <- function(data_list,
                       pb_markdown = pb_markdown,
                       n_threads = n_threads,
                       silent = silent,
-                      return_fit = return_fit)
+                      return_fit = return_fit,
+                      sitrep_loglike = sitrep_loglike)
   
   # functions to pass to C++
   args_functions <- list(test_convergence = test_convergence,
@@ -269,9 +274,11 @@ nested_to_long <- function(nl) {
 #' @noRd
 get_lookup_density <- function() {
   
+  #return(NULL)
+  
   # compute lookup if it does not already exist
   if (is.null(cache$lookup_density)) {
-    message("creating lookup tables. This takes a long time the first time this function is used, and is faster thereafter")
+    message("creating lookup tables. This takes a long time the first time this function is run, but is faster thereafter")
     
     # define vectors over which to create lookup
     mvec <- seq(0, 20, 0.01)

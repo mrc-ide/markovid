@@ -11,8 +11,11 @@ void System::load(Rcpp::List args) {
   Rcpp::List args_functions = args["args_functions"];
   Rcpp::List args_progress = args["args_progress"];
   Rcpp::List args_progress_burnin = args_progress["pb_burnin"];
+#define USE_LOOKUP
+#ifdef USE_LOOKUP
   Rcpp::List args_lookup_density = args["args_lookup_density"];
   Rcpp::List args_lookup_tail = args["args_lookup_tail"];
+#endif
   
   // option to return model fit
   return_fit = rcpp_to_bool(args_params["return_fit"]);
@@ -39,11 +42,35 @@ void System::load(Rcpp::List args) {
   p_ID_nodex = rcpp_to_vector_double(data_list["p_ID_nodex"]);
   p_ID_noden = p_AI_nodex.size();
   
+  m_AI_nodex = rcpp_to_vector_double(data_list["m_AI_nodex"]);
+  m_AI_noden = m_AI_nodex.size();
+  m_AD_nodex = rcpp_to_vector_double(data_list["m_AD_nodex"]);
+  m_AD_noden = m_AD_nodex.size();
   m_AC_nodex = rcpp_to_vector_double(data_list["m_AC_nodex"]);
   m_AC_noden = m_AC_nodex.size();
+  m_ID_nodex = rcpp_to_vector_double(data_list["m_ID_nodex"]);
+  m_ID_noden = m_ID_nodex.size();
+  m_IS_nodex = rcpp_to_vector_double(data_list["m_IS_nodex"]);
+  m_IS_noden = m_IS_nodex.size();
+  m_SC_nodex = rcpp_to_vector_double(data_list["m_SC_nodex"]);
+  m_SC_noden = m_SC_nodex.size();
   
   // individual-level data
   Rcpp::List indlevel_list = data_list["indlevel"];
+  
+  p_AI_numer = rcpp_to_vector_int(indlevel_list["p_AI_numer"]);
+  p_AI_denom = rcpp_to_vector_int(indlevel_list["p_AI_denom"]);
+  p_AD_numer = rcpp_to_vector_int(indlevel_list["p_AD_numer"]);
+  p_AD_denom = rcpp_to_vector_int(indlevel_list["p_AD_denom"]);
+  p_ID_numer = rcpp_to_vector_int(indlevel_list["p_ID_numer"]);
+  p_ID_denom = rcpp_to_vector_int(indlevel_list["p_ID_denom"]);
+  m_AI_count = rcpp_to_matrix_int(indlevel_list["m_AI_count"]);
+  m_AD_count = rcpp_to_matrix_int(indlevel_list["m_AD_count"]);
+  m_AC_count = rcpp_to_matrix_int(indlevel_list["m_AC_count"]);
+  m_ID_count = rcpp_to_matrix_int(indlevel_list["m_ID_count"]);
+  m_IS_count = rcpp_to_matrix_int(indlevel_list["m_IS_count"]);
+  m_SC_count = rcpp_to_matrix_int(indlevel_list["m_SC_count"]);
+  
   age = rcpp_to_vector_int(indlevel_list["age"]);
   icu = rcpp_to_vector_int(indlevel_list["icu"]);
   stepdown = rcpp_to_vector_int(indlevel_list["stepdown"]);
@@ -95,14 +122,16 @@ void System::load(Rcpp::List args) {
   // misc parameters
   pb_markdown = rcpp_to_bool(args_params["pb_markdown"]);
   silent = rcpp_to_bool(args_params["silent"]);
+  sitrep_loglike = rcpp_to_bool(args_params["sitrep_loglike"]);
   n_threads = rcpp_to_int(args_params["n_threads"]);
-  #ifndef _OPENMP
+#ifndef _OPENMP
   if (n_threads > 1) {
     Rcpp::Rcout << "n_threads has no effect as openmp not available\n";
   }
-  #endif
+#endif
   
   // populate lookup tables
+#ifdef USE_LOOKUP
   int n_m = args_lookup_density.size();
   gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
   gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
@@ -110,28 +139,6 @@ void System::load(Rcpp::List args) {
     gamma_density_lookup[i] = rcpp_to_matrix_double(args_lookup_density[i]);
     gamma_tail_lookup[i] = rcpp_to_matrix_double(args_lookup_tail[i]);
   }
-  
-  //print_vector(gamma_tail_lookup[100][100]);
-  //Rcpp::stop("goobar");
-  
-  //std::vector< std::vector<double> > z = rcpp_to_matrix_double(args_lookup_density[0]);
-  //Rcpp::stop("foobar");
-  
-  //int n_m = 2001;
-  //int n_s = 101;
-  //gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
-  //gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m, std::vector<std::vector<double>>(n_s, std::vector<double>(lookup_max)));
-  //print("initializing lookup tables");
-  //for (int i = 0; i < n_m; ++i) {
-  //  double m = double(i) / 100.0;
-  //  for (int j = 0; j < n_s; ++j) {
-  //    double s = double(j) / 100.0;
-  //    for (int k = 0; k < lookup_max; ++k) {
-  //      gamma_density_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, true, false) -
-  //                                      R::pgamma(k, 1.0/(s*s), m*s*s, true, false);
-  //      gamma_tail_lookup[i][j][k] = R::pgamma(k + 1, 1.0/(s*s), m*s*s, false, false);
-  //    }
-  //  }
-  //}
+#endif
   
 }

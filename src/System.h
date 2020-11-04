@@ -34,10 +34,33 @@ public:
   std::vector<double> p_ID_nodex;
   int p_ID_noden;
   
+  std::vector<double> m_AI_nodex;
+  int m_AI_noden;
+  std::vector<double> m_AD_nodex;
+  int m_AD_noden;
   std::vector<double> m_AC_nodex;
   int m_AC_noden;
+  std::vector<double> m_ID_nodex;
+  int m_ID_noden;
+  std::vector<double> m_IS_nodex;
+  int m_IS_noden;
+  std::vector<double> m_SC_nodex;
+  int m_SC_noden;
   
   // individual-level data
+  std::vector<int> p_AI_numer;
+  std::vector<int> p_AI_denom;
+  std::vector<int> p_AD_numer;
+  std::vector<int> p_AD_denom;
+  std::vector<int> p_ID_numer;
+  std::vector<int> p_ID_denom;
+  std::vector<std::vector<int>> m_AI_count;
+  std::vector<std::vector<int>> m_AD_count;
+  std::vector<std::vector<int>> m_AC_count;
+  std::vector<std::vector<int>> m_ID_count;
+  std::vector<std::vector<int>> m_IS_count;
+  std::vector<std::vector<int>> m_SC_count;
+  
   std::vector<int> age;
   std::vector<int> icu;
   std::vector<int> stepdown;
@@ -74,12 +97,12 @@ public:
   // misc parameters
   bool pb_markdown;
   bool silent;
+  bool sitrep_loglike;
+  size_t n_threads;
   
   // lookup tables
   std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
   std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
-
-  size_t n_threads;
   
   
   // PUBLIC FUNCTIONS
