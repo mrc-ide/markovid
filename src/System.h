@@ -98,14 +98,11 @@ public:
   bool pb_markdown;
   bool silent;
   bool sitrep_loglike;
+  size_t n_threads;
   
   // lookup tables
   std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
   std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
-  
-  std::vector<std::vector<double>> pgamma_lookup;
-  
-  size_t n_threads;
   
   
   // PUBLIC FUNCTIONS

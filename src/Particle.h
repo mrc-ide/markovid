@@ -116,7 +116,6 @@ public:
   
   // other public methods
   double get_delay_density(int x, double m, double s);
-  double get_delay_density2(int x, double m, double s);
   double get_delay_tail(int x, double m, double s);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();

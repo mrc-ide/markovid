@@ -446,7 +446,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i, bool quick_exit
     
     if (!isfinite(ret)) {
       //print(i, s_ptr->p_AI_denom[i], s_ptr->p_AI_numer[i], p_AI[i], ret);
-      //Rcpp::stop("ret non finite");
+      Rcpp::stop("ret non finite");
     }
   }
   
@@ -733,27 +733,12 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
     }
   }
   
-  // TODO - delete
-  //print(get_delay_density(10, 3, 0.5),
-  //      get_delay_density(10, 3, 0.9),
-  //      get_delay_density(10, 20, 0.5),
-  //      get_delay_density(10, 20, 0.9));
-  
-  //print(get_delay_density2(10, 3, 0.5),
-  //      get_delay_density2(10, 3, 0.9),
-  //      get_delay_density2(10, 20, 0.5),
-  //      get_delay_density2(10, 20, 0.9));
-  
-  //Rcpp::stop("foobar");
-  
-  
   return ret;
 }
 
 //------------------------------------------------
 // get density of delay distribution on day x
 double Particle::get_delay_density(int x, double m, double s) {
-  return get_delay_density2(x, m, s);
 #define USE_LOOKUP
 #ifdef USE_LOOKUP
   double m_index = floor(m * 100);
@@ -770,22 +755,6 @@ double Particle::get_delay_density(int x, double m, double s) {
 #else
   return 1.0;
 #endif
-}
-
-double Particle::get_delay_density2(int x, double m, double s) {
-  int s_index = floor(s * 100);
-  int x_index1 = floor(x / m * 100);
-  int x_index2 = floor((x + 1) / m * 100);
-  if ((s_index < 0) || (s_index > 100) || (x_index1 < 0) || (x_index2 < 0) || (x_index1 == x_index2)) {
-    print("get_delay_density outside lookup range");
-    print(x, m, s, s_index, x_index1, x_index2);
-    Rcpp::stop("");
-  }
-  if ((x_index1 > 1000) || (x_index2 > 1000)) {
-    return 1e-200;
-  }
-  double ret = s_ptr->pgamma_lookup[s_index][x_index2] - s_ptr->pgamma_lookup[s_index][x_index1];
-  return ret;
 }
 
 //------------------------------------------------

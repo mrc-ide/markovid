@@ -139,15 +139,6 @@ void System::load(Rcpp::List args) {
     gamma_density_lookup[i] = rcpp_to_matrix_double(args_lookup_density[i]);
     gamma_tail_lookup[i] = rcpp_to_matrix_double(args_lookup_tail[i]);
   }
-  
-  pgamma_lookup = std::vector<std::vector<double>>(101, std::vector<double>(1001));
-  for (unsigned int i = 0; i < pgamma_lookup.size(); ++i) {
-    double cv = i / double(100);
-    for (unsigned int j = 0; j < pgamma_lookup[i].size(); ++j) {
-      pgamma_lookup[i][j] = R::pgamma(j / double(100), 1/(cv*cv), cv*cv, true, false);
-    }
-  }
-  
 #endif
   
 }
