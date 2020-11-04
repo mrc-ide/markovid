@@ -30,6 +30,12 @@ library(epitools)
 
 set.seed(4)
 
+x <- seq(0, 10, 0.01)
+length(x)
+
+cv <- 0.6
+plot(x, dgamma(x, shape = 1/cv^2, rate = 1/cv^2))
+
 
 # ------------------------------------------------------------------
 # Prepare individual-level data
@@ -37,6 +43,65 @@ set.seed(4)
 # load dummy individual-level data
 indlevel_list <- readRDS(system.file("extdata", "dummy_indlevel.rds", package = "markovid", mustWork = TRUE))
 
+# get aggregate values for each 1-year age band
+p_AI_numer <- p_AI_denom <- p_AD_numer <- p_AD_denom <- p_ID_numer <- p_ID_denom <- rep(-1, 120)
+m_AI_count <- m_AD_count <- m_AC_count <- m_ID_count <- m_IS_count <- m_SC_count <- replicate(120, rep(-1, 100), simplify = FALSE)
+for (i in seq_along(p_AI_numer)) {
+  
+  # ICU counts
+  w <- which(indlevel_list$age == i)
+  p_AI_numer[i] <- sum(indlevel_list$icu[w] == 1)
+  p_AI_denom[i] <- sum(indlevel_list$icu[w] %in% c(0,1))
+  
+  # death in general ward
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == FALSE))
+  p_AD_numer[i] <- sum(indlevel_list$final_outcome_numeric[w] == 1, na.rm = TRUE)
+  p_AD_denom[i] <- sum(indlevel_list$final_outcome_numeric[w] %in% c(1,2), na.rm = TRUE)
+  
+  # death in ICU
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == TRUE))
+  p_ID_numer[i] <- sum(indlevel_list$final_outcome_numeric[w] == 1, na.rm = TRUE)
+  p_ID_denom[i] <- sum(indlevel_list$final_outcome_numeric[w] %in% c(1,2), na.rm = TRUE)
+  
+  # time admission to ICU
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == TRUE))
+  m_AI_count[[i]] <- tabulate(indlevel_list$date_icu[w] - indlevel_list$date_admission[w] + 1, nbins = 100)
+  
+  # time admission to death in general ward
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == FALSE) & (indlevel_list$final_outcome_numeric == 1))
+  m_AD_count[[i]] <- tabulate(indlevel_list$date_final_outcome[w] - indlevel_list$date_admission[w] + 1, nbins = 100)
+  
+  # time admission to discharge in general ward
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == FALSE) & (indlevel_list$final_outcome_numeric == 2))
+  m_AC_count[[i]] <- tabulate(indlevel_list$date_final_outcome[w] - indlevel_list$date_admission[w] + 1, nbins = 100)
+  
+  # time admission to death in ICU
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == TRUE) & (indlevel_list$final_outcome_numeric == 1))
+  m_ID_count[[i]] <- tabulate(indlevel_list$date_final_outcome[w] - indlevel_list$date_icu[w] + 1, nbins = 100)
+  
+  # time admission to stepdown from ICU
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == TRUE) & (indlevel_list$stepdown == TRUE))
+  m_IS_count[[i]] <- tabulate(indlevel_list$date_stepdown[w] - indlevel_list$date_icu[w] + 1, nbins = 100)
+  
+  # time stepdown to discharge
+  w <- which((indlevel_list$age == i) & (indlevel_list$icu == TRUE) & (indlevel_list$stepdown == TRUE))
+  m_SC_count[[i]] <- tabulate(indlevel_list$date_final_outcome[w] - indlevel_list$date_stepdown[w] + 1, nbins = 100)
+  
+}
+
+# load into indlevel_list object
+indlevel_list$p_AI_numer <- p_AI_numer
+indlevel_list$p_AI_denom <- p_AI_denom
+indlevel_list$p_AD_numer <- p_AD_numer
+indlevel_list$p_AD_denom <- p_AD_denom
+indlevel_list$p_ID_numer <- p_ID_numer
+indlevel_list$p_ID_denom <- p_ID_denom
+indlevel_list$m_AI_count <- m_AI_count
+indlevel_list$m_AD_count <- m_AD_count
+indlevel_list$m_AC_count <- m_AC_count
+indlevel_list$m_ID_count <- m_ID_count
+indlevel_list$m_IS_count <- m_IS_count
+indlevel_list$m_SC_count <- m_SC_count
 
 # ------------------------------------------------------------------
 # Prepare SitRep data
@@ -100,8 +165,23 @@ p_AD_noden <- length(p_AD_nodex)
 p_ID_nodex <- age_seq
 p_ID_noden <- length(p_ID_nodex)
 
+m_AI_nodex <- age_seq
+m_AI_noden <- length(m_AI_nodex)
+
+m_AD_nodex <- age_seq
+m_AD_noden <- length(m_AD_nodex)
+
 m_AC_nodex <- age_seq
 m_AC_noden <- length(m_AC_nodex)
+
+m_ID_nodex <- age_seq
+m_ID_noden <- length(m_ID_nodex)
+
+m_IS_nodex <- age_seq
+m_IS_noden <- length(m_IS_nodex)
+
+m_SC_nodex <- age_seq
+m_SC_noden <- length(m_SC_nodex)
 
 # create final data list
 data_list <- list(sitrep = sitrep_list,
@@ -116,7 +196,12 @@ data_list <- list(sitrep = sitrep_list,
                   p_AI_nodex = p_AI_nodex,
                   p_AD_nodex = p_AD_nodex,
                   p_ID_nodex = p_ID_nodex,
-                  m_AC_nodex = m_AC_nodex)
+                  m_AI_nodex = m_AI_nodex,
+                  m_AD_nodex = m_AD_nodex,
+                  m_AC_nodex = m_AC_nodex,
+                  m_ID_nodex = m_ID_nodex,
+                  m_IS_nodex = m_IS_nodex,
+                  m_SC_nodex = m_SC_nodex)
 
 
 # ------------------------------------------------------------------
@@ -126,22 +211,18 @@ data_list <- list(sitrep = sitrep_list,
 df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_AD_node%s", 1:p_AD_noden), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_ID_node%s", 1:p_ID_noden), min = -5, max = 5, init = 0),
-                   data.frame(name = "m_AI", min = 0, max = 20, init = 1),
-                   data.frame(name = "m_AD", min = 0, max = 20, init = 1),
+                   data.frame(name = sprintf("m_AI_node%s", 1:m_AI_noden), min = -5, max = 5, init = 0),
+                   data.frame(name = sprintf("m_AD_node%s", 1:m_AD_noden), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("m_AC_node%s", 1:m_AC_noden), min = -5, max = 5, init = 0),
-                   data.frame(name = "m_ID", min = 0, max = 20, init = 1),
-                   data.frame(name = "m_IS", min = 0, max = 20, init = 1),
-                   data.frame(name = "m_SC", min = 0, max = 20, init = 1),
+                   data.frame(name = sprintf("m_ID_node%s", 1:m_ID_noden), min = -5, max = 5, init = 0),
+                   data.frame(name = sprintf("m_IS_node%s", 1:m_IS_noden), min = -5, max = 5, init = 0),
+                   data.frame(name = sprintf("m_SC_node%s", 1:m_SC_noden), min = -5, max = 5, init = 0),
                    data.frame(name = "s_AI", min = 0, max = 1, init = 0.9),
                    data.frame(name = "s_AD", min = 0, max = 1, init = 0.7),
                    data.frame(name = "s_AC", min = 0, max = 1, init = 0.7),
                    data.frame(name = "s_ID", min = 0, max = 1, init = 0.9),
                    data.frame(name = "s_IS", min = 0, max = 1, init = 0.9),
                    data.frame(name = "s_SC", min = 0, max = 1, init = 0.9),
-                   data.frame(name = "c_AD", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "c_AC", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "c_ID", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "c_IS", min = 0, max = 1, init = 0.5),
                    data.frame(name = sprintf("scale_p_AI_region%s", 1:n_region), min = 0.1, max = 10, init = 1),
                    data.frame(name = sprintf("scale_p_AD_region%s", 1:n_region), min = 0.1, max = 10, init = 1),
                    data.frame(name = sprintf("scale_p_ID_region%s", 1:n_region), min = 0.1, max = 10, init = 1)
@@ -152,8 +233,8 @@ df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:p_AI_noden), min =
 # Run MCMC
 
 # define MCMC parameters
-burnin <- 20
-samples <- 20
+burnin <- 100
+samples <- 100
 chains <- 1
 beta_vec <- 1
 pb_markdown <- FALSE
@@ -168,8 +249,14 @@ mcmc <- markovid::run_mcmc(data_list = data_list,
                            chains = chains,
                            beta_vec = 1,
                            pb_markdown = pb_markdown,
-                           n_threads = 8)
+                           n_threads = 8,
+                           sitrep_loglike = FALSE)
 
 print(Sys.time() - t0)
 
+
+# basic exploratory plots
+plot_credible(mcmc)
+#plot_credible(mcmc, show = sprintf("p_AI_node%s", 1:7))
+#plot_par(mcmc, show = "p_AI", phase = "both")
 
