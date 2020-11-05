@@ -154,7 +154,7 @@ sim_indlevel <- function(params_scalar,
 #'   given state for x days. This output is given for each state. All outputs
 #'   are given broken down by age.
 #'   
-#' @param df_sim dataframe of individual-level data, in the format output by
+#' @param df_data dataframe of individual-level data, in the format output by
 #'   \code{sim_indlevel()}.
 #' @param age_vec an integer sequence of ages over which to aggregate.
 #' @param t_max the maximum time considered when tabulating durations in each
@@ -162,13 +162,13 @@ sim_indlevel <- function(params_scalar,
 #'
 #' @export
 
-aggregate_indlevel <- function(df_sim,
+aggregate_indlevel <- function(df_data,
                                age_vec = 0:100,
                                t_max = 100) {
   
   # check inputs
-  assert_dataframe(df_sim)
-  assert_in(c("age", "icu", "stepdown", "final_outcome", "date_admission", "date_icu", "date_stepdown", "date_final_outcome"), names(df_sim))
+  assert_dataframe(df_data)
+  assert_in(c("age", "icu", "stepdown", "final_outcome", "date_admission", "date_icu", "date_stepdown", "date_final_outcome"), names(df_data))
   assert_vector_pos_int(age_vec, zero_allowed = TRUE)
   assert_greq(length(age_vec), 5)
   assert_single_pos_int(t_max, zero_allowed = FALSE)
@@ -182,43 +182,43 @@ aggregate_indlevel <- function(df_sim,
   for (i in seq_len(n_age)) {
     
     # ICU counts
-    w <- which(df_sim$age == age_vec[i])
-    p_AI_numer[i] <- sum(df_sim$icu[w] == TRUE, na.rm = TRUE)
-    p_AI_denom[i] <- sum(df_sim$icu[w] %in% c(TRUE, FALSE), na.rm = TRUE)
+    w <- which(df_data$age == age_vec[i])
+    p_AI_numer[i] <- sum(df_data$icu[w] == TRUE, na.rm = TRUE)
+    p_AI_denom[i] <- sum(df_data$icu[w] %in% c(TRUE, FALSE), na.rm = TRUE)
     
     # death in general ward
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == FALSE))
-    p_AD_numer[i] <- sum(df_sim$final_outcome[w] == "death", na.rm = TRUE)
-    p_AD_denom[i] <- sum(df_sim$final_outcome[w] %in% c("death", "discharge"), na.rm = TRUE)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == FALSE))
+    p_AD_numer[i] <- sum(df_data$final_outcome[w] == "death", na.rm = TRUE)
+    p_AD_denom[i] <- sum(df_data$final_outcome[w] %in% c("death", "discharge"), na.rm = TRUE)
     
     # death in ICU
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == TRUE))
-    p_ID_numer[i] <- sum(df_sim$final_outcome[w] == "death", na.rm = TRUE)
-    p_ID_denom[i] <- sum(df_sim$final_outcome[w] %in% c("death", "discharge"), na.rm = TRUE)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == TRUE))
+    p_ID_numer[i] <- sum(df_data$final_outcome[w] == "death", na.rm = TRUE)
+    p_ID_denom[i] <- sum(df_data$final_outcome[w] %in% c("death", "discharge"), na.rm = TRUE)
     
     # time admission to ICU
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == TRUE))
-    m_AI_count[[i]] <- tabulate(df_sim$date_icu[w] - df_sim$date_admission[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == TRUE))
+    m_AI_count[[i]] <- tabulate(df_data$date_icu[w] - df_data$date_admission[w] + 1, nbins = 100)
     
     # time admission to death in general ward
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == FALSE) & (df_sim$final_outcome == "death"))
-    m_AD_count[[i]] <- tabulate(df_sim$date_final_outcome[w] - df_sim$date_admission[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == FALSE) & (df_data$final_outcome == "death"))
+    m_AD_count[[i]] <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = 100)
     
     # time admission to discharge in general ward
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == FALSE) & (df_sim$final_outcome == "discharge"))
-    m_AC_count[[i]] <- tabulate(df_sim$date_final_outcome[w] - df_sim$date_admission[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == FALSE) & (df_data$final_outcome == "discharge"))
+    m_AC_count[[i]] <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = 100)
     
     # time admission to death in ICU
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == TRUE) & (df_sim$final_outcome == "death"))
-    m_ID_count[[i]] <- tabulate(df_sim$date_final_outcome[w] - df_sim$date_icu[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == TRUE) & (df_data$final_outcome == "death"))
+    m_ID_count[[i]] <- tabulate(df_data$date_final_outcome[w] - df_data$date_icu[w] + 1, nbins = 100)
     
     # time admission to stepdown from ICU
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == TRUE) & (df_sim$stepdown == TRUE))
-    m_IS_count[[i]] <- tabulate(df_sim$date_stepdown[w] - df_sim$date_icu[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == TRUE) & (df_data$stepdown == TRUE))
+    m_IS_count[[i]] <- tabulate(df_data$date_stepdown[w] - df_data$date_icu[w] + 1, nbins = 100)
     
     # time stepdown to discharge
-    w <- which((df_sim$age == age_vec[i]) & (df_sim$icu == TRUE) & (df_sim$stepdown == TRUE))
-    m_SC_count[[i]] <- tabulate(df_sim$date_final_outcome[w] - df_sim$date_stepdown[w] + 1, nbins = 100)
+    w <- which((df_data$age == age_vec[i]) & (df_data$icu == TRUE) & (df_data$stepdown == TRUE))
+    m_SC_count[[i]] <- tabulate(df_data$date_final_outcome[w] - df_data$date_stepdown[w] + 1, nbins = 100)
     
   }
   
