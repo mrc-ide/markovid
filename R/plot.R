@@ -511,3 +511,54 @@ plot_mc_acceptance <- function(x, chain = 1, phase = "sampling", x_axis_type = 1
   
   return(plot1)
 }
+
+#------------------------------------------------
+#' @title Plot spline quantiles
+#'
+#' @description Given age-dependent quantile information, as produced by
+#'   \code{get_spline_quantiles()}, produce a ribbon plot over ages. Optionally
+#'   overlay
+#'
+#' @param df_spline_quantile dataframe of quantiles broken down by age, as
+#'   produced by \code{get_spline_quantiles()}.
+#' @param df_data_quantile dataframe of exact data quantiles, as produced by
+#'   \code{get_data_quantiles_p()} or \code{get_data_quantiles_m()}. Ignored if
+#'   \code{NULL}.
+#' @param title plot title.
+#' @param ylim y-limits of the plot.
+#'
+#' @export
+
+# function for plotting spline quantiles
+plot_spline_quantiles <- function(df_spline_quantile,
+                                  df_data_quantile = NULL,
+                                  title = "",
+                                  ylim = c(0,1)) {
+  
+  # avoid no visible binding error
+  age <- Q2.5 <- Q97.5 <- Q50 <- lower <- upper <- NULL
+    
+  # check inputs
+  assert_dataframe(df_spline_quantile)
+  assert_in(c("age", "Q2.5", "Q50", "Q97.5"), names(df_spline_quantile))
+  if (!is.null(df_data_quantile)) {
+    assert_dataframe(df_data_quantile)
+    assert_in(c("age", "lower", "upper", "mean"), names(df_data_quantile))
+  }
+  assert_single_string(title)
+  assert_limit(ylim)
+  
+  # produce plotting object
+  ret <- ggplot(df_spline_quantile) + theme_bw() + 
+    geom_ribbon(aes(x = age, ymin = Q2.5, ymax = Q97.5), fill = "blue", alpha = 0.5) +
+    geom_line(aes(x = age, y = Q50)) +
+    ggplot2::ggtitle(title) + ggplot2::ylim(ylim)
+  
+  # add raw data confidence intervals
+  if (!is.null(df_data_quantile)) {
+    ret <- ret + geom_pointrange(aes(x = age, y = mean, ymin = lower, ymax = upper),
+                                 size = 0.2, data = df_data_quantile)
+  }
+  
+  return(ret)
+}

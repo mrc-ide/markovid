@@ -23,7 +23,8 @@ Imports:
     dplyr,
     magrittr,
     stringr,
-    testthat
+    testthat,
+    epitools
 SystemRequirements: C++11
 Suggests: 
     covr,

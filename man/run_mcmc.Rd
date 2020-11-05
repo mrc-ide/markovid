@@ -11,10 +11,8 @@ run_mcmc(
   samples = 10000,
   beta_vec = 1,
   chains = 1,
-  n_threads = 1,
   pb_markdown = FALSE,
-  silent = FALSE,
-  return_fit = FALSE
+  silent = FALSE
 )
 }
 \arguments{
@@ -32,18 +30,9 @@ to ordinary MCMC.}
 
 \item{chains}{Independent MCMC chains.}
 
-\item{n_threads}{Number of threads to use if running in
-parallel. Do not exceed the number of cores available on the
-machine. Has no effect if markovid was not compiled with openmp
-support.}
-
 \item{pb_markdown}{If TRUE then run in markdown safe mode.}
 
 \item{silent}{If TRUE then console output is suppressed.}
-
-\item{return_fit}{If TRUE then MCMC is not run, instead the model fit is
-returned under the initial parameter values specified in the parameters
-dataframe.}
 }
 \description{
 Take in data, model parameters, and MCMC parameters. Run main

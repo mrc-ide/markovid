@@ -20,11 +20,6 @@ public:
   // local copies of some parameters for convenience
   int d;
   
-  // rescaling parameters
-  std::vector<double> scale_p_AI;
-  std::vector<double> scale_p_AD;
-  std::vector<double> scale_p_ID;
-  
   // vector over ages for cubic splines
   std::vector<double> age_seq;
   
@@ -57,23 +52,6 @@ public:
   double s_ID;
   double s_IS;
   double s_SC;
-  
-  // objects for storing progression over all stratification
-  std::vector<std::vector<std::vector<double>>> deaths_incidence;
-  std::vector<std::vector<std::vector<double>>> discharges_incidence;
-  std::vector<std::vector<std::vector<double>>> general_prevalence;
-  std::vector<std::vector<std::vector<double>>> critical_prevalence;
-  
-  std::vector<std::vector<double>> delta_stepup;
-  std::vector<std::vector<double>> delta_stepdown;
-  std::vector<std::vector<double>> delta_deaths_general;
-  std::vector<std::vector<double>> delta_discharges_general;
-  std::vector<std::vector<double>> delta_open_general;
-  std::vector<std::vector<double>> delta_deaths_critical;
-  std::vector<std::vector<double>> delta_open_critical;
-  
-  std::vector<std::vector<double>> stepup;
-  std::vector<std::vector<double>> stepdown;
   
   // theta is the parameter vector in natural space
   std::vector<double> theta;
@@ -108,10 +86,9 @@ public:
   
   // update theta[i] via univariate Metropolis-Hastings
   void update(double beta);
-  void update_region(int region_i);
   
   // loglikelihood and logprior
-  double get_loglike(std::vector<double> &theta, int theta_i, bool quick_exit = false);
+  double get_loglike(std::vector<double> &theta, int theta_i);
   double get_logprior(std::vector<double> &theta, int theta_i);
   
   // other public methods
