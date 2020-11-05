@@ -11,3 +11,4 @@
 ignore/
 R_ignore/
 ^index.md
+^\.github$
