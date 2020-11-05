@@ -13,17 +13,8 @@
 #'   at 1 then thermodynamic MCMC is effectively turned off and this simplifies
 #'   to ordinary MCMC.
 #' @param chains Independent MCMC chains.
-#' @param n_threads Number of threads to use if running in
-#'   parallel. Do not exceed the number of cores available on the
-#'   machine. Has no effect if markovid was not compiled with openmp
-#'   support.
 #' @param pb_markdown If TRUE then run in markdown safe mode.
 #' @param silent If TRUE then console output is suppressed.
-#' @param return_fit If TRUE then MCMC is not run, instead the model fit is
-#'   returned under the initial parameter values specified in the parameters
-#'   dataframe.
-#' @param sitrep_loglike If TRUE then the SitRep log-likelihood is included in
-#'   the overall log-likelihood.
 #'
 #' @import ggplot2
 #' @importFrom stats prcomp
@@ -35,11 +26,8 @@ run_mcmc <- function(data_list,
                      samples = 1e4,
                      beta_vec = 1,
                      chains = 1,
-                     n_threads = 1,
                      pb_markdown = FALSE,
-                     silent = FALSE,
-                     return_fit = FALSE,
-                     sitrep_loglike = TRUE) {
+                     silent = FALSE) {
   
   # avoid "no visible binding" note
   stage <- value <- chain <- link <- NULL
@@ -65,13 +53,7 @@ run_mcmc <- function(data_list,
   # check misc parameters
   assert_single_logical(pb_markdown)
   assert_single_logical(silent)
-  assert_single_logical(return_fit)
-  assert_single_logical(sitrep_loglike)
   
-  # check that maximum lookup value does not exceed table dimensions
-  if (data_list$lookup_max >= 100) {
-    #stop("maximum lookup value greater than size of table")
-  }
   
   # ---------- pre-processing ----------
   
@@ -107,10 +89,7 @@ run_mcmc <- function(data_list,
                       samples = samples,
                       beta_vec = beta_vec,
                       pb_markdown = pb_markdown,
-                      n_threads = n_threads,
-                      silent = silent,
-                      return_fit = return_fit,
-                      sitrep_loglike = sitrep_loglike)
+                      silent = silent)
   
   # functions to pass to C++
   args_functions <- list(test_convergence = test_convergence,
@@ -123,35 +102,17 @@ run_mcmc <- function(data_list,
                args_lookup_tail = lookup_tail)
   
   # replicate arguments over chains
-  parallel_args <- replicate(chains, args, simplify = FALSE)
+  chain_args <- replicate(chains, args, simplify = FALSE)
   for (i in 1:chains) {
-    parallel_args[[i]]$args_params$chain <- i
+    chain_args[[i]]$args_params$chain <- i
   }
   
   
   # ---------- run MCMC ----------
   
   # run in serial
-  output_raw <- lapply(parallel_args, deploy_chain)
+  output_raw <- lapply(chain_args, deploy_chain)
   
-  
-  # ---------- option to return model fit ----------
-  
-  if (return_fit) {
-    
-    # drop elements that are not defined over ages
-    raw_names <- names(output_raw[[1]])
-    
-    # get remaining into long form
-    ret <- nested_to_long(output_raw[[1]])
-    names(ret) <- c("x", "value", "age", "region", "metric")
-    ret$metric <- c("deaths_incidence",
-                    "discharges_incidence",
-                    "general_prevalence",
-                    "critical_prevalence")[ret$metric]
-    
-    return(ret)
-  }
   
   # ---------- process output ----------
   
@@ -193,9 +154,11 @@ run_mcmc <- function(data_list,
   # Rhat
   if (chains > 1) {
     rhat_est <- c()
-    for(p in seq_along(param_names)){
-      pm <- output_processed$output[output_processed$output$stage == "sampling",c("chain", as.character(param_names[p]))]
-      rhat_est[p] <- gelman_rubin(pm, chains, samples)
+    output_sampling <- subset(df_output, stage == "sampling")
+    for (p in seq_along(param_names)) {
+      par_draws <- output_sampling[,as.character(param_names[p])]
+      par_chain <- output_sampling[,"chain"]
+      rhat_est[p] <- gelman_rubin(par_draws, par_chain, chains)
     }
     rhat_est[skip_param] <- NA
     output_processed$diagnostics$rhat <- rhat_est
@@ -271,6 +234,7 @@ nested_to_long <- function(nl) {
 
 # ------------------------------------------------------------------
 # calculate lookup table first time only
+#' @importFrom stats pgamma
 #' @noRd
 get_lookup_density <- function() {
   
@@ -282,7 +246,7 @@ get_lookup_density <- function() {
     
     # define vectors over which to create lookup
     mvec <- seq(0, 20, 0.01)
-    svec <- seq(0, 1, 0.01)
+    svec <- seq(0, 2, 0.01)
     kvec <- 0:100
     
     # create matrices from marginal vectors
