@@ -4,10 +4,10 @@
 \alias{aggregate_indlevel}
 \title{Aggregate individual-level data}
 \usage{
-aggregate_indlevel(df_sim, age_vec = 0:100, t_max = 100)
+aggregate_indlevel(df_data, age_vec = 0:100, t_max = 100)
 }
 \arguments{
-\item{df_sim}{dataframe of individual-level data, in the format output by
+\item{df_data}{dataframe of individual-level data, in the format output by
 \code{sim_indlevel()}.}
 
 \item{age_vec}{an integer sequence of ages over which to aggregate.}

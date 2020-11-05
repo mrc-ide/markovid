@@ -246,7 +246,7 @@ get_lookup_density <- function() {
     
     # define vectors over which to create lookup
     mvec <- seq(0, 20, 0.01)
-    svec <- seq(0, 1, 0.01)
+    svec <- seq(0, 2, 0.01)
     kvec <- 0:100
     
     # create matrices from marginal vectors

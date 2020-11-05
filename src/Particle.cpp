@@ -518,7 +518,7 @@ double Particle::get_delay_density(int x, double m, double s) {
 #ifdef USE_LOOKUP
   double m_index = floor(m * 100);
   double s_index = floor(s * 100);
-  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 100) || (x < 0)) {
+  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 200) || (x < 0)) {
     print("get_delay_density outside lookup range");
     print(x, m, s, m_index, s_index);
     Rcpp::stop("");
@@ -543,7 +543,7 @@ double Particle::get_delay_tail(int x, double m, double s) {
 #ifdef USE_LOOKUP
   double m_index = floor(m * 100);
   double s_index = floor(s * 100);
-  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 100) || (x < 0)) {
+  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 200) || (x < 0)) {
     print("get_delay_tail outside lookup range");
     print(x, m, s, m_index, s_index);
     Rcpp::stop("");
