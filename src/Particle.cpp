@@ -31,20 +31,6 @@ void Particle::init(System &s) {
   p_ID_node = vector<double>(s_ptr->n_node);
   p_ID = vector<double>(s_ptr->max_indlevel_age + 1);
   
-  // mean durations
-  m_AI_node = vector<double>(s_ptr->n_node);
-  m_AI = vector<double>(s_ptr->max_indlevel_age + 1);
-  m_AD_node = vector<double>(s_ptr->n_node);
-  m_AD = vector<double>(s_ptr->max_indlevel_age + 1);
-  m_AC_node = vector<double>(s_ptr->n_node);
-  m_AC = vector<double>(s_ptr->max_indlevel_age + 1);
-  m_ID_node = vector<double>(s_ptr->n_node);
-  m_ID = vector<double>(s_ptr->max_indlevel_age + 1);
-  m_IS_node = vector<double>(s_ptr->n_node);
-  m_IS = vector<double>(s_ptr->max_indlevel_age + 1);
-  m_SC_node = vector<double>(s_ptr->n_node);
-  m_SC = vector<double>(s_ptr->max_indlevel_age + 1);
-  
   // theta is the parameter vector in natural space
   theta = s_ptr->theta_init;
   theta_prop = vector<double>(d);
@@ -231,24 +217,12 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
   }
   
   // mean durations
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AI_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AD_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AC_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_ID_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_IS_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_SC_node[i] = theta[pi++];
-  }
+  m_AI = theta[pi++];
+  m_AD = theta[pi++];
+  m_AC = theta[pi++];
+  m_ID = theta[pi++];
+  m_IS = theta[pi++];
+  m_SC = theta[pi++];
   
   // coefficients of variation of durations
   s_AI = theta[pi++];
@@ -283,42 +257,6 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
     p_ID[i] = 1.0 / (1.0 + exp(-p_ID[i]));
   }
   
-  // get cubic spline for m_AI and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_AI_node, age_seq, m_AI);
-  for (unsigned int i = 0; i < m_AI.size(); ++i) {
-    m_AI[i] = 20.0 / (1.0 + exp(-m_AI[i]));
-  }
-  
-  // get cubic spline for m_AD and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_AD_node, age_seq, m_AD);
-  for (unsigned int i = 0; i < m_AD.size(); ++i) {
-    m_AD[i] = 20.0 / (1.0 + exp(-m_AD[i]));
-  }
-  
-  // get cubic spline for m_AC and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_AC_node, age_seq, m_AC);
-  for (unsigned int i = 0; i < m_AC.size(); ++i) {
-    m_AC[i] = 20.0 / (1.0 + exp(-m_AC[i]));
-  }
-  
-  // get cubic spline for m_ID and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_ID_node, age_seq, m_ID);
-  for (unsigned int i = 0; i < m_ID.size(); ++i) {
-    m_ID[i] = 20.0 / (1.0 + exp(-m_ID[i]));
-  }
-  
-  // get cubic spline for m_IS and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_IS_node, age_seq, m_IS);
-  for (unsigned int i = 0; i < m_IS.size(); ++i) {
-    m_IS[i] = 20.0 / (1.0 + exp(-m_IS[i]));
-  }
-  
-  // get cubic spline for m_SC and transform to [0,20] interval
-  cubic_spline(s_ptr->node_x, m_SC_node, age_seq, m_SC);
-  for (unsigned int i = 0; i < m_SC.size(); ++i) {
-    m_SC[i] = 20.0 / (1.0 + exp(-m_SC[i]));
-  }
-  
   
   // ----------------------------------------------------------------
   // individual-level component of likelihood
@@ -330,59 +268,59 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
     ret += R::dbinom(s_ptr->p_AI_numer[i], s_ptr->p_AI_denom[i], p_AI[i], true);
     ret += R::dbinom(s_ptr->p_AD_numer[i], s_ptr->p_AD_denom[i], p_AD[i], true);
     ret += R::dbinom(s_ptr->p_ID_numer[i], s_ptr->p_ID_denom[i], p_ID[i], true);
-    
-    // duration m_AI
-    for (unsigned int j = 0; j < s_ptr->m_AI_count[i].size(); ++j) {
-      int tmp = s_ptr->m_AI_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_AI[i], s_AI));
-      }
+  }
+  
+  // duration m_AI
+  for (unsigned int j = 0; j < s_ptr->m_AI_count.size(); ++j) {
+    int tmp = s_ptr->m_AI_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_AI, s_AI));
     }
-    
-    // duration m_AD
-    for (unsigned int j = 0; j < s_ptr->m_AD_count[i].size(); ++j) {
-      int tmp = s_ptr->m_AD_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_AD[i], s_AD));
-      }
+  }
+  
+  // duration m_AD
+  for (unsigned int j = 0; j < s_ptr->m_AD_count.size(); ++j) {
+    int tmp = s_ptr->m_AD_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_AD, s_AD));
     }
-    
-    // duration m_AC
-    for (unsigned int j = 0; j < s_ptr->m_AC_count[i].size(); ++j) {
-      int tmp = s_ptr->m_AC_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_AC[i], s_AC));
-      }
+  }
+  
+  // duration m_AC
+  for (unsigned int j = 0; j < s_ptr->m_AC_count.size(); ++j) {
+    int tmp = s_ptr->m_AC_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_AC, s_AC));
     }
-    
-    // duration m_ID
-    for (unsigned int j = 0; j < s_ptr->m_ID_count[i].size(); ++j) {
-      int tmp = s_ptr->m_ID_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_ID[i], s_ID));
-      }
+  }
+  
+  // duration m_ID
+  for (unsigned int j = 0; j < s_ptr->m_ID_count.size(); ++j) {
+    int tmp = s_ptr->m_ID_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_ID, s_ID));
     }
-    
-    // duration m_IS
-    for (unsigned int j = 0; j < s_ptr->m_IS_count[i].size(); ++j) {
-      int tmp = s_ptr->m_IS_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_IS[i], s_IS));
-      }
+  }
+  
+  // duration m_IS
+  for (unsigned int j = 0; j < s_ptr->m_IS_count.size(); ++j) {
+    int tmp = s_ptr->m_IS_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_IS, s_IS));
     }
-    
-    // duration m_SC
-    for (unsigned int j = 0; j < s_ptr->m_SC_count[i].size(); ++j) {
-      int tmp = s_ptr->m_SC_count[i][j];
-      if (tmp > 0) {
-        ret += tmp * log(get_delay_density(j, m_SC[i], s_SC));
-      }
+  }
+  
+  // duration m_SC
+  for (unsigned int j = 0; j < s_ptr->m_SC_count.size(); ++j) {
+    int tmp = s_ptr->m_SC_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_SC, s_SC));
     }
-    
-    if (!isfinite(ret)) {
-      //print(i, s_ptr->p_AI_denom[i], s_ptr->p_AI_numer[i], p_AI[i], ret);
-      Rcpp::stop("ret non finite");
-    }
+  }
+  
+  if (!isfinite(ret)) {
+    //print(i, s_ptr->p_AI_denom[i], s_ptr->p_AI_numer[i], p_AI[i], ret);
+    Rcpp::stop("ret non finite");
   }
   
   // ----------------------------------------------------------------
@@ -416,25 +354,6 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
     p_ID_node[i] = theta[pi++];
   }
   
-  // mean durations
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AI_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AD_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_AC_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_ID_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_IS_node[i] = theta[pi++];
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    m_SC_node[i] = theta[pi++];
-  }
   
   // ----------------------------------------------------------------
   // apply transformations and priors
@@ -464,50 +383,6 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
     }
   }
   
-  // mean durations
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_AI_node[i] -2*log(1 + exp(-m_AI_node[i]));
-    } else {
-      ret += R::dnorm(m_AI_node[i], m_AI_node[i-1], k, true);
-    }
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_AD_node[i] -2*log(1 + exp(-m_AD_node[i]));
-    } else {
-      ret += R::dnorm(m_AD_node[i], m_AD_node[i-1], k, true);
-    }
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_AC_node[i] -2*log(1 + exp(-m_AC_node[i]));
-    } else {
-      ret += R::dnorm(m_AC_node[i], m_AC_node[i-1], k, true);
-    }
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_ID_node[i] -2*log(1 + exp(-m_ID_node[i]));
-    } else {
-      ret += R::dnorm(m_ID_node[i], m_ID_node[i-1], k, true);
-    }
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_IS_node[i] -2*log(1 + exp(-m_IS_node[i]));
-    } else {
-      ret += R::dnorm(m_IS_node[i], m_IS_node[i-1], k, true);
-    }
-  }
-  for (int i = 0; i < s_ptr->n_node; ++i) {
-    if (i == 0) {
-      ret += -m_SC_node[i] -2*log(1 + exp(-m_SC_node[i]));
-    } else {
-      ret += R::dnorm(m_SC_node[i], m_SC_node[i-1], k, true);
-    }
-  }
-  
   return ret;
 }
 
@@ -529,31 +404,6 @@ double Particle::get_delay_density(int x, double m, double s) {
   return s_ptr->gamma_density_lookup[m_index][s_index][x];
 #else
   double ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, true, false) - R::pgamma(x, 1.0/(s*s), m*s*s, true, false);
-  if (ret < 1e-200) {
-    ret = 1e-200;
-  }
-  return ret;
-#endif
-}
-
-//------------------------------------------------
-// get tail of delay distribution past day x
-double Particle::get_delay_tail(int x, double m, double s) {
-#define USE_LOOKUP
-#ifdef USE_LOOKUP
-  double m_index = floor(m * 100);
-  double s_index = floor(s * 100);
-  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 200) || (x < 0)) {
-    print("get_delay_tail outside lookup range");
-    print(x, m, s, m_index, s_index);
-    Rcpp::stop("");
-  }
-  if (x > 100) {
-    return 1e-200;
-  }
-  return s_ptr->gamma_tail_lookup[m_index][s_index][x];
-#else
-  double ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, false, false);
   if (ret < 1e-200) {
     ret = 1e-200;
   }

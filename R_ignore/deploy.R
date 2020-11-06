@@ -25,7 +25,7 @@ data_linelist <- readRDS(system.file("extdata", "dummy_indlevel.rds",
 
 # aggregate line list data
 age_vec <- 0:100
-data_agg <- aggregate_indlevel(df_sim = data_linelist,
+data_agg <- aggregate_indlevel(df_data = data_linelist,
                                age_vec = age_vec)
 
 # define age spline nodes
@@ -45,12 +45,12 @@ data_list <- list(indlevel = data_agg,
 df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:n_node), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_AD_node%s", 1:n_node), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_ID_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_AI_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_AD_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_AC_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_ID_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_IS_node%s", 1:n_node), min = -5, max = 5, init = 0),
-                   data.frame(name = sprintf("m_SC_node%s", 1:n_node), min = -5, max = 5, init = 0),
+                   data.frame(name = "m_AI", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_AD", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_AC", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_ID", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_IS", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_SC", min = 0, max = 20, init = 5),
                    data.frame(name = "s_AI", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_AD", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_AC", min = 0, max = 1, init = 0.5),
@@ -64,8 +64,8 @@ df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:n_node), min = -5,
 # Run MCMC
 
 # define MCMC parameters
-burnin <- 1e2
-samples <- 1e2
+burnin <- 1e3
+samples <- 1e4
 chains <- 1
 
 # run MCMC
@@ -110,87 +110,36 @@ p_ID_quantile <- get_spline_quantiles(p_ID_spline)
 p_OD_spline <- (1 - p_AI_spline)*p_AD_spline + p_AI_spline*p_ID_spline
 p_OD_quantile <- get_spline_quantiles(p_OD_spline)
 
-mcmc_samples_m_AI <- as.matrix(mcmc_samples[, sprintf("m_AI_node%s", seq_along(node_x)), drop = FALSE])
-m_AI_spline <- get_spline(mcmc_samples_m_AI, node_x, age_vec, scale = 20)
-m_AI_quantile <- get_spline_quantiles(m_AI_spline)
-
-mcmc_samples_m_AD <- as.matrix(mcmc_samples[, sprintf("m_AD_node%s", seq_along(node_x)), drop = FALSE])
-m_AD_spline <- get_spline(mcmc_samples_m_AD, node_x, age_vec, scale = 20)
-m_AD_quantile <- get_spline_quantiles(m_AD_spline)
-
-mcmc_samples_m_AC <- as.matrix(mcmc_samples[, sprintf("m_AC_node%s", seq_along(node_x)), drop = FALSE])
-m_AC_spline <- get_spline(mcmc_samples_m_AC, node_x, age_vec, scale = 20)
-m_AC_quantile <- get_spline_quantiles(m_AC_spline)
-
-mcmc_samples_m_ID <- as.matrix(mcmc_samples[, sprintf("m_ID_node%s", seq_along(node_x)), drop = FALSE])
-m_ID_spline <- get_spline(mcmc_samples_m_ID, node_x, age_vec, scale = 20)
-m_ID_quantile <- get_spline_quantiles(m_ID_spline)
-
-mcmc_samples_m_IS <- as.matrix(mcmc_samples[, sprintf("m_IS_node%s", seq_along(node_x)), drop = FALSE])
-m_IS_spline <- get_spline(mcmc_samples_m_IS, node_x, age_vec, scale = 20)
-m_IS_quantile <- get_spline_quantiles(m_IS_spline)
-
-mcmc_samples_m_SC <- as.matrix(mcmc_samples[, sprintf("m_SC_node%s", seq_along(node_x)), drop = FALSE])
-m_SC_spline <- get_spline(mcmc_samples_m_SC, node_x, age_vec, scale = 20)
-m_SC_quantile <- get_spline_quantiles(m_SC_spline)
-
 
 # ------------------------------------------------------------------
 # Get 95% exact binomial intervals from raw data
 
 # prob. admission to ICU
 df_quantiles_p_AI <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == TRUE),
                                           outcome2 = (data_linelist$icu == FALSE))
 
 # prob. general ward to death
 df_quantiles_p_AD <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == FALSE) & (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$icu == FALSE) & (data_linelist$final_outcome == "discharge"))
 
 # prob. ICU ward to death
 df_quantiles_p_ID <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "discharge"))
 
 # overall prob. death
 df_quantiles_p_OD <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$final_outcome == "discharge"))
 
-# time general ward to ICU
-tmp <- subset(data_linelist, (icu == TRUE))
-df_quantiles_m_AI <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_icu - tmp$date_admission)
-
-# time general ward to death
-tmp <- subset(data_linelist, (icu == FALSE) & (final_outcome == "death"))
-df_quantiles_m_AD <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_final_outcome - tmp$date_admission)
-
-# time general ward to discharge
-tmp <- subset(data_linelist, (icu == FALSE) & (final_outcome == "discharge"))
-df_quantiles_m_AC <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_final_outcome - tmp$date_admission)
-
-# time ICU to death
-tmp <- subset(data_linelist, (icu == TRUE) & (final_outcome == "death"))
-df_quantiles_m_ID <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_final_outcome - tmp$date_icu)
-
-# time ICU to stepdown
-tmp <- subset(data_linelist, (icu == TRUE) & (stepdown == TRUE))
-df_quantiles_m_IS <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_stepdown - tmp$date_icu)
-
-# time stepdown to discharge
-tmp <- subset(data_linelist, (stepdown == TRUE) & !is.na(date_final_outcome))
-df_quantiles_m_SC <- get_data_quantiles_m(age = tmp$age,
-                                          delta = tmp$date_final_outcome - tmp$date_stepdown)
-
-
 # ------------------------------------------------------------------
-# Plot posterior spline quantiles and overlaid data
+# Plot posteriors
 
 
 # produce spline plots
@@ -207,29 +156,13 @@ plot_p_OD <- plot_spline_quantiles(df_spline_quantile = p_OD_quantile,
                                    df_data_quantile = df_quantiles_p_OD,
                                    title = "p_OD", ylim = c(0,1))
 
-plot_m_AI <- plot_spline_quantiles(df_spline_quantile = m_AI_quantile,
-                                   df_data_quantile = df_quantiles_m_AI,
-                                   title = "m_AI", ylim = c(0,20))
-plot_m_AD <- plot_spline_quantiles(df_spline_quantile = m_AD_quantile,
-                                   df_data_quantile = df_quantiles_m_AD,
-                                   title = "m_AD", ylim = c(0,20))
-plot_m_AC <- plot_spline_quantiles(df_spline_quantile = m_AC_quantile,
-                                   df_data_quantile = df_quantiles_m_AC,
-                                   title = "m_AC", ylim = c(0,20))
-plot_m_ID <- plot_spline_quantiles(df_spline_quantile = m_ID_quantile,
-                                   df_data_quantile = df_quantiles_m_ID,
-                                   title = "m_ID", ylim = c(0,20))
-plot_m_IS <- plot_spline_quantiles(df_spline_quantile = m_IS_quantile,
-                                   df_data_quantile = df_quantiles_m_IS,
-                                   title = "m_IS", ylim = c(0,20))
-plot_m_SC <- plot_spline_quantiles(df_spline_quantile = m_SC_quantile,
-                                   df_data_quantile = df_quantiles_m_SC,
-                                   title = "m_SC", ylim = c(0,20))
-
-
-# produce combined plots
+# produce combined plot of transition splines
 cowplot::plot_grid(plot_p_AI, plot_p_AD, plot_p_ID, plot_p_OD)
-cowplot::plot_grid(plot_m_AI, plot_m_AD, plot_m_AC, plot_m_ID, plot_m_IS, plot_m_SC, ncol = 2)
+
+# plot durations
+plot_credible(mcmc, show = c("m_AI", "m_AD", "m_AC", "m_ID", "m_IS", "m_SC")) +
+  ggplot2::ylim(0, 20)
+
 
 
 

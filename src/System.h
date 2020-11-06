@@ -26,12 +26,12 @@ public:
   std::vector<int> p_AD_denom;
   std::vector<int> p_ID_numer;
   std::vector<int> p_ID_denom;
-  std::vector<std::vector<int>> m_AI_count;
-  std::vector<std::vector<int>> m_AD_count;
-  std::vector<std::vector<int>> m_AC_count;
-  std::vector<std::vector<int>> m_ID_count;
-  std::vector<std::vector<int>> m_IS_count;
-  std::vector<std::vector<int>> m_SC_count;
+  std::vector<int> m_AI_count;
+  std::vector<int> m_AD_count;
+  std::vector<int> m_AC_count;
+  std::vector<int> m_ID_count;
+  std::vector<int> m_IS_count;
+  std::vector<int> m_SC_count;
   
   // model parameters
   std::vector<double> theta_min;
@@ -54,7 +54,6 @@ public:
   
   // lookup tables
   std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
-  std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
   
   
   // PUBLIC FUNCTIONS
