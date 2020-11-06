@@ -54,7 +54,6 @@ public:
   
   // lookup tables
   std::vector<std::vector<std::vector<double>>> gamma_density_lookup;
-  std::vector<std::vector<std::vector<double>>> gamma_tail_lookup;
   
   
   // PUBLIC FUNCTIONS

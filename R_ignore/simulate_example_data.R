@@ -1,4 +1,15 @@
 
+# simulate_example_data.R
+#
+# Author: Bob Verity
+# Date: 2020-11-05
+#
+# Purpose:
+# Produce simulated individual-level data. Save to file inside package.
+
+# ------------------------------------------------------------------
+
+
 # define scalar parameters
 params_scalar <- c(s_AI = 0.9,
                    s_AD = 0.9,

@@ -15,7 +15,6 @@ void System::load(Rcpp::List args) {
 #define USE_LOOKUP
 #ifdef USE_LOOKUP
   Rcpp::List args_lookup_density = args["args_lookup_density"];
-  Rcpp::List args_lookup_tail = args["args_lookup_tail"];
 #endif
   
   // data list
@@ -67,10 +66,8 @@ void System::load(Rcpp::List args) {
 #ifdef USE_LOOKUP
   int n_m = args_lookup_density.size();
   gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
-  gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
   for (int i = 0; i < n_m; ++i) {
     gamma_density_lookup[i] = rcpp_to_matrix_double(args_lookup_density[i]);
-    gamma_tail_lookup[i] = rcpp_to_matrix_double(args_lookup_tail[i]);
   }
 #endif
   

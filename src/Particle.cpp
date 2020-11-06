@@ -536,28 +536,4 @@ double Particle::get_delay_density(int x, double m, double s) {
 #endif
 }
 
-//------------------------------------------------
-// get tail of delay distribution past day x
-double Particle::get_delay_tail(int x, double m, double s) {
-#define USE_LOOKUP
-#ifdef USE_LOOKUP
-  double m_index = floor(m * 100);
-  double s_index = floor(s * 100);
-  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 200) || (x < 0)) {
-    print("get_delay_tail outside lookup range");
-    print(x, m, s, m_index, s_index);
-    Rcpp::stop("");
-  }
-  if (x > 100) {
-    return 1e-200;
-  }
-  return s_ptr->gamma_tail_lookup[m_index][s_index][x];
-#else
-  double ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, false, false);
-  if (ret < 1e-200) {
-    ret = 1e-200;
-  }
-  return ret;
-#endif
-}
 

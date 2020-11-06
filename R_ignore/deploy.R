@@ -25,7 +25,7 @@ data_linelist <- readRDS(system.file("extdata", "dummy_indlevel.rds",
 
 # aggregate line list data
 age_vec <- 0:100
-data_agg <- aggregate_indlevel(df_sim = data_linelist,
+data_agg <- aggregate_indlevel(df_data = data_linelist,
                                age_vec = age_vec)
 
 # define age spline nodes
@@ -140,52 +140,62 @@ m_SC_quantile <- get_spline_quantiles(m_SC_spline)
 
 # prob. admission to ICU
 df_quantiles_p_AI <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == TRUE),
                                           outcome2 = (data_linelist$icu == FALSE))
 
 # prob. general ward to death
 df_quantiles_p_AD <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == FALSE) & (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$icu == FALSE) & (data_linelist$final_outcome == "discharge"))
 
 # prob. ICU ward to death
 df_quantiles_p_ID <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "discharge"))
 
 # overall prob. death
 df_quantiles_p_OD <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
                                           outcome1 = (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$final_outcome == "discharge"))
 
 # time general ward to ICU
 tmp <- subset(data_linelist, (icu == TRUE))
 df_quantiles_m_AI <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_icu - tmp$date_admission)
 
 # time general ward to death
 tmp <- subset(data_linelist, (icu == FALSE) & (final_outcome == "death"))
 df_quantiles_m_AD <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_final_outcome - tmp$date_admission)
 
 # time general ward to discharge
 tmp <- subset(data_linelist, (icu == FALSE) & (final_outcome == "discharge"))
 df_quantiles_m_AC <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_final_outcome - tmp$date_admission)
 
 # time ICU to death
 tmp <- subset(data_linelist, (icu == TRUE) & (final_outcome == "death"))
 df_quantiles_m_ID <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_final_outcome - tmp$date_icu)
 
 # time ICU to stepdown
 tmp <- subset(data_linelist, (icu == TRUE) & (stepdown == TRUE))
 df_quantiles_m_IS <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_stepdown - tmp$date_icu)
 
 # time stepdown to discharge
 tmp <- subset(data_linelist, (stepdown == TRUE) & !is.na(date_final_outcome))
 df_quantiles_m_SC <- get_data_quantiles_m(age = tmp$age,
+                                          max_age = max(age_vec),
                                           delta = tmp$date_final_outcome - tmp$date_stepdown)
 
 
