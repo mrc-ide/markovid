@@ -30,13 +30,17 @@ public:
   std::vector<double> p_AD;
   std::vector<double> p_ID_node;
   std::vector<double> p_ID;
+  std::vector<double> p_SD_node;
+  std::vector<double> p_SD;
   
   // mean durations
   double m_AI;
   double m_AD;
   double m_AC;
   double m_ID;
-  double m_IS;
+  double m_I1S;
+  double m_I2S;
+  double m_SD;
   double m_SC;
   
   // coefficients of variation of durations
@@ -44,7 +48,9 @@ public:
   double s_AD;
   double s_AC;
   double s_ID;
-  double s_IS;
+  double s_I1S;
+  double s_I2S;
+  double s_SD;
   double s_SC;
   
   // theta is the parameter vector in natural space

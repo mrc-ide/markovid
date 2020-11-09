@@ -36,11 +36,15 @@ void System::load(Rcpp::List args) {
   p_AD_denom = rcpp_to_vector_int(indlevel_list["p_AD_denom"]);
   p_ID_numer = rcpp_to_vector_int(indlevel_list["p_ID_numer"]);
   p_ID_denom = rcpp_to_vector_int(indlevel_list["p_ID_denom"]);
+  p_SD_numer = rcpp_to_vector_int(indlevel_list["p_SD_numer"]);
+  p_SD_denom = rcpp_to_vector_int(indlevel_list["p_SD_denom"]);
   m_AI_count = rcpp_to_vector_int(indlevel_list["m_AI_count"]);
   m_AD_count = rcpp_to_vector_int(indlevel_list["m_AD_count"]);
   m_AC_count = rcpp_to_vector_int(indlevel_list["m_AC_count"]);
   m_ID_count = rcpp_to_vector_int(indlevel_list["m_ID_count"]);
-  m_IS_count = rcpp_to_vector_int(indlevel_list["m_IS_count"]);
+  m_I1S_count = rcpp_to_vector_int(indlevel_list["m_I1S_count"]);
+  m_I2S_count = rcpp_to_vector_int(indlevel_list["m_I2S_count"]);
+  m_SD_count = rcpp_to_vector_int(indlevel_list["m_SD_count"]);
   m_SC_count = rcpp_to_vector_int(indlevel_list["m_SC_count"]);
   
   // model parameters

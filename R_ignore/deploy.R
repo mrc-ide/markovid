@@ -45,17 +45,22 @@ data_list <- list(indlevel = data_agg,
 df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:n_node), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_AD_node%s", 1:n_node), min = -5, max = 5, init = 0),
                    data.frame(name = sprintf("p_ID_node%s", 1:n_node), min = -5, max = 5, init = 0),
+                   data.frame(name = sprintf("p_SD_node%s", 1:n_node), min = -5, max = 5, init = 0),
                    data.frame(name = "m_AI", min = 0, max = 20, init = 5),
                    data.frame(name = "m_AD", min = 0, max = 20, init = 5),
                    data.frame(name = "m_AC", min = 0, max = 20, init = 5),
                    data.frame(name = "m_ID", min = 0, max = 20, init = 5),
-                   data.frame(name = "m_IS", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_I1S", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_I2S", min = 0, max = 20, init = 5),
+                   data.frame(name = "m_SD", min = 0, max = 20, init = 5),
                    data.frame(name = "m_SC", min = 0, max = 20, init = 5),
                    data.frame(name = "s_AI", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_AD", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_AC", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_ID", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_IS", min = 0, max = 1, init = 0.5),
+                   data.frame(name = "s_I1S", min = 0, max = 1, init = 0.5),
+                   data.frame(name = "s_I2S", min = 0, max = 1, init = 0.5),
+                   data.frame(name = "s_SD", min = 0, max = 1, init = 0.5),
                    data.frame(name = "s_SC", min = 0, max = 1, init = 0.5)
 )
 
@@ -64,8 +69,8 @@ df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:n_node), min = -5,
 # Run MCMC
 
 # define MCMC parameters
-burnin <- 1e3
-samples <- 1e4
+burnin <- 1e2
+samples <- 1e3
 chains <- 1
 
 # run MCMC
@@ -107,7 +112,11 @@ mcmc_samples_p_ID <- as.matrix(mcmc_samples[, sprintf("p_ID_node%s", seq_along(n
 p_ID_spline <- get_spline(mcmc_samples_p_ID, node_x, age_vec)
 p_ID_quantile <- get_spline_quantiles(p_ID_spline)
 
-p_OD_spline <- (1 - p_AI_spline)*p_AD_spline + p_AI_spline*p_ID_spline
+mcmc_samples_p_SD <- as.matrix(mcmc_samples[, sprintf("p_SD_node%s", seq_along(node_x)), drop = FALSE])
+p_SD_spline <- get_spline(mcmc_samples_p_SD, node_x, age_vec)
+p_SD_quantile <- get_spline_quantiles(p_SD_spline)
+
+p_OD_spline <- (1 - p_AI_spline)*p_AD_spline + p_AI_spline*(p_ID_spline + (1 - p_ID_spline)*p_SD_spline)
 p_OD_quantile <- get_spline_quantiles(p_OD_spline)
 
 
@@ -129,14 +138,22 @@ df_quantiles_p_AD <- get_data_quantiles_p(age = data_linelist$age,
 # prob. ICU ward to death
 df_quantiles_p_ID <- get_data_quantiles_p(age = data_linelist$age,
                                           max_age = max(age_vec),
-                                          outcome1 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "death"),
-                                          outcome2 = (data_linelist$icu == TRUE) & (data_linelist$final_outcome == "discharge"))
+                                          outcome1 = (data_linelist$icu == TRUE) & (data_linelist$stepdown == FALSE),
+                                          outcome2 = (data_linelist$icu == TRUE) & (data_linelist$stepdown == TRUE))
+
+
+# prob. stepdown to death
+df_quantiles_p_SD <- get_data_quantiles_p(age = data_linelist$age,
+                                          max_age = max(age_vec),
+                                          outcome1 = (data_linelist$stepdown == TRUE) & (data_linelist$final_outcome == "death"),
+                                          outcome2 = (data_linelist$stepdown == TRUE) & (data_linelist$final_outcome == "discharge"))
 
 # overall prob. death
 df_quantiles_p_OD <- get_data_quantiles_p(age = data_linelist$age,
                                           max_age = max(age_vec),
                                           outcome1 = (data_linelist$final_outcome == "death"),
                                           outcome2 = (data_linelist$final_outcome == "discharge"))
+
 
 # ------------------------------------------------------------------
 # Plot posteriors
@@ -152,15 +169,18 @@ plot_p_AD <- plot_spline_quantiles(df_spline_quantile = p_AD_quantile,
 plot_p_ID <- plot_spline_quantiles(df_spline_quantile = p_ID_quantile,
                                    df_data_quantile = df_quantiles_p_ID,
                                    title = "p_ID", ylim = c(0,1))
+plot_p_SD <- plot_spline_quantiles(df_spline_quantile = p_SD_quantile,
+                                   df_data_quantile = df_quantiles_p_SD,
+                                   title = "p_SD", ylim = c(0,1))
 plot_p_OD <- plot_spline_quantiles(df_spline_quantile = p_OD_quantile,
                                    df_data_quantile = df_quantiles_p_OD,
                                    title = "p_OD", ylim = c(0,1))
 
 # produce combined plot of transition splines
-cowplot::plot_grid(plot_p_AI, plot_p_AD, plot_p_ID, plot_p_OD)
+cowplot::plot_grid(plot_p_AI, plot_p_AD, plot_p_ID, plot_p_SD, plot_p_OD, ncol = 2)
 
 # plot durations
-plot_credible(mcmc, show = c("m_AI", "m_AD", "m_AC", "m_ID", "m_IS", "m_SC")) +
+plot_credible(mcmc, show = c("m_AI", "m_AD", "m_AC", "m_ID", "m_I1S", "m_I2S", "m_SD", "m_SC")) +
   ggplot2::ylim(0, 20)
 
 
