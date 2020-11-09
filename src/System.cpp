@@ -15,7 +15,6 @@ void System::load(Rcpp::List args) {
 #define USE_LOOKUP
 #ifdef USE_LOOKUP
   Rcpp::List args_lookup_density = args["args_lookup_density"];
-  Rcpp::List args_lookup_tail = args["args_lookup_tail"];
 #endif
   
   // data list
@@ -37,12 +36,16 @@ void System::load(Rcpp::List args) {
   p_AD_denom = rcpp_to_vector_int(indlevel_list["p_AD_denom"]);
   p_ID_numer = rcpp_to_vector_int(indlevel_list["p_ID_numer"]);
   p_ID_denom = rcpp_to_vector_int(indlevel_list["p_ID_denom"]);
-  m_AI_count = rcpp_to_matrix_int(indlevel_list["m_AI_count"]);
-  m_AD_count = rcpp_to_matrix_int(indlevel_list["m_AD_count"]);
-  m_AC_count = rcpp_to_matrix_int(indlevel_list["m_AC_count"]);
-  m_ID_count = rcpp_to_matrix_int(indlevel_list["m_ID_count"]);
-  m_IS_count = rcpp_to_matrix_int(indlevel_list["m_IS_count"]);
-  m_SC_count = rcpp_to_matrix_int(indlevel_list["m_SC_count"]);
+  p_SD_numer = rcpp_to_vector_int(indlevel_list["p_SD_numer"]);
+  p_SD_denom = rcpp_to_vector_int(indlevel_list["p_SD_denom"]);
+  m_AI_count = rcpp_to_vector_int(indlevel_list["m_AI_count"]);
+  m_AD_count = rcpp_to_vector_int(indlevel_list["m_AD_count"]);
+  m_AC_count = rcpp_to_vector_int(indlevel_list["m_AC_count"]);
+  m_ID_count = rcpp_to_vector_int(indlevel_list["m_ID_count"]);
+  m_I1S_count = rcpp_to_vector_int(indlevel_list["m_I1S_count"]);
+  m_I2S_count = rcpp_to_vector_int(indlevel_list["m_I2S_count"]);
+  m_SD_count = rcpp_to_vector_int(indlevel_list["m_SD_count"]);
+  m_SC_count = rcpp_to_vector_int(indlevel_list["m_SC_count"]);
   
   // model parameters
   theta_min = rcpp_to_vector_double(args_params["theta_min"]);
@@ -67,10 +70,8 @@ void System::load(Rcpp::List args) {
 #ifdef USE_LOOKUP
   int n_m = args_lookup_density.size();
   gamma_density_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
-  gamma_tail_lookup = std::vector<std::vector<std::vector<double>>>(n_m);
   for (int i = 0; i < n_m; ++i) {
     gamma_density_lookup[i] = rcpp_to_matrix_double(args_lookup_density[i]);
-    gamma_tail_lookup[i] = rcpp_to_matrix_double(args_lookup_tail[i]);
   }
 #endif
   

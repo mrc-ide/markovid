@@ -73,7 +73,6 @@ run_mcmc <- function(data_list,
   # read in lookup tables
   lookup_list <- get_lookup_density()
   lookup_density <- lookup_list$gamma_density
-  lookup_tail <- lookup_list$gamma_tail
   
   
   # ---------- define argument lists ----------
@@ -98,8 +97,7 @@ run_mcmc <- function(data_list,
   # complete list of arguments
   args <- list(args_params = args_params,
                args_functions = args_functions,
-               args_lookup_density = lookup_density,
-               args_lookup_tail = lookup_tail)
+               args_lookup_density = lookup_density)
   
   # replicate arguments over chains
   chain_args <- replicate(chains, args, simplify = FALSE)
@@ -254,32 +252,27 @@ get_lookup_density <- function() {
     smat <- output <- matrix(rep(svec, length(kvec)), length(svec))
     
     # save values into list
-    gamma_density <- gamma_tail <- list()
+    gamma_density <- list()
     for (i in seq_along(mvec)) {
       m <- mvec[i]
       
       # calculate gamma density and gamma tail
       gamma_density[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE) -
                                              pgamma(kmat, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE))
-      gamma_tail[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = 1/smat^2, scale = m*smat^2, lower.tail = FALSE))
       
       # replace NaN with 0
       gamma_density[[i]][is.na(gamma_density[[i]])] <- 0
-      gamma_tail[[i]][is.na(gamma_tail[[i]])] <- 0
       
       # add tiny value to buffer against underflow
       gamma_density[[i]] <- gamma_density[[i]] + 1e-200
-      gamma_tail[[i]] <- gamma_tail[[i]] + 1e-200
       
       # split into nested lists
       gamma_density[[i]] <- split(gamma_density[[i]], f = row(gamma_density[[i]]))
-      gamma_tail[[i]] <- split(gamma_tail[[i]], f = row(gamma_tail[[i]]))
       
     }
     
     # store in cache
-    cache$lookup_density <- list(gamma_density = gamma_density,
-                                 gamma_tail = gamma_tail)
+    cache$lookup_density <- list(gamma_density = gamma_density)
   }
   
   cache$lookup_density

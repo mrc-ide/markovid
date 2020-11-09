@@ -30,27 +30,27 @@ public:
   std::vector<double> p_AD;
   std::vector<double> p_ID_node;
   std::vector<double> p_ID;
+  std::vector<double> p_SD_node;
+  std::vector<double> p_SD;
   
   // mean durations
-  std::vector<double> m_AI_node;
-  std::vector<double> m_AI;
-  std::vector<double> m_AD_node;
-  std::vector<double> m_AD;
-  std::vector<double> m_AC_node;
-  std::vector<double> m_AC;
-  std::vector<double> m_ID_node;
-  std::vector<double> m_ID;
-  std::vector<double> m_IS_node;
-  std::vector<double> m_IS;
-  std::vector<double> m_SC_node;
-  std::vector<double> m_SC;
+  double m_AI;
+  double m_AD;
+  double m_AC;
+  double m_ID;
+  double m_I1S;
+  double m_I2S;
+  double m_SD;
+  double m_SC;
   
   // coefficients of variation of durations
   double s_AI;
   double s_AD;
   double s_AC;
   double s_ID;
-  double s_IS;
+  double s_I1S;
+  double s_I2S;
+  double s_SD;
   double s_SC;
   
   // theta is the parameter vector in natural space
@@ -93,7 +93,6 @@ public:
   
   // other public methods
   double get_delay_density(int x, double m, double s);
-  double get_delay_tail(int x, double m, double s);
   void phi_prop_to_theta_prop(int i);
   void theta_to_phi();
   double get_adjustment(int i);
