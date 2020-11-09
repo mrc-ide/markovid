@@ -26,11 +26,15 @@ public:
   std::vector<int> p_AD_denom;
   std::vector<int> p_ID_numer;
   std::vector<int> p_ID_denom;
+  std::vector<int> p_SD_numer;
+  std::vector<int> p_SD_denom;
   std::vector<int> m_AI_count;
   std::vector<int> m_AD_count;
   std::vector<int> m_AC_count;
   std::vector<int> m_ID_count;
-  std::vector<int> m_IS_count;
+  std::vector<int> m_I1S_count;
+  std::vector<int> m_I2S_count;
+  std::vector<int> m_SD_count;
   std::vector<int> m_SC_count;
   
   // model parameters

@@ -30,6 +30,8 @@ void Particle::init(System &s) {
   p_AD = vector<double>(s_ptr->max_indlevel_age + 1);
   p_ID_node = vector<double>(s_ptr->n_node);
   p_ID = vector<double>(s_ptr->max_indlevel_age + 1);
+  p_SD_node = vector<double>(s_ptr->n_node);
+  p_SD = vector<double>(s_ptr->max_indlevel_age + 1);
   
   // theta is the parameter vector in natural space
   theta = s_ptr->theta_init;
@@ -215,13 +217,18 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
   for (int i = 0; i < s_ptr->n_node; ++i) {
     p_ID_node[i] = theta[pi++];
   }
+  for (int i = 0; i < s_ptr->n_node; ++i) {
+    p_SD_node[i] = theta[pi++];
+  }
   
   // mean durations
   m_AI = theta[pi++];
   m_AD = theta[pi++];
   m_AC = theta[pi++];
   m_ID = theta[pi++];
-  m_IS = theta[pi++];
+  m_I1S = theta[pi++];
+  m_I2S = theta[pi++];
+  m_SD = theta[pi++];
   m_SC = theta[pi++];
   
   // coefficients of variation of durations
@@ -229,7 +236,9 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
   s_AD = theta[pi++];
   s_AC = theta[pi++];
   s_ID = theta[pi++];
-  s_IS = theta[pi++];
+  s_I1S = theta[pi++];
+  s_I2S = theta[pi++];
+  s_SD = theta[pi++];
   s_SC = theta[pi++];
   
   // initialise loglikelihood
@@ -257,6 +266,12 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
     p_ID[i] = 1.0 / (1.0 + exp(-p_ID[i]));
   }
   
+  // get cubic spline for p_SD and transform to [0,1] interval
+  cubic_spline(s_ptr->node_x, p_SD_node, age_seq, p_SD);
+  for (unsigned int i = 0; i < p_SD.size(); ++i) {
+    p_SD[i] = 1.0 / (1.0 + exp(-p_SD[i]));
+  }
+  
   
   // ----------------------------------------------------------------
   // individual-level component of likelihood
@@ -268,6 +283,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
     ret += R::dbinom(s_ptr->p_AI_numer[i], s_ptr->p_AI_denom[i], p_AI[i], true);
     ret += R::dbinom(s_ptr->p_AD_numer[i], s_ptr->p_AD_denom[i], p_AD[i], true);
     ret += R::dbinom(s_ptr->p_ID_numer[i], s_ptr->p_ID_denom[i], p_ID[i], true);
+    ret += R::dbinom(s_ptr->p_SD_numer[i], s_ptr->p_SD_denom[i], p_SD[i], true);
   }
   
   // duration m_AI
@@ -302,11 +318,27 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
     }
   }
   
-  // duration m_IS
-  for (unsigned int j = 0; j < s_ptr->m_IS_count.size(); ++j) {
-    int tmp = s_ptr->m_IS_count[j];
+  // duration m_I1S
+  for (unsigned int j = 0; j < s_ptr->m_I1S_count.size(); ++j) {
+    int tmp = s_ptr->m_I1S_count[j];
     if (tmp > 0) {
-      ret += tmp * log(get_delay_density(j, m_IS, s_IS));
+      ret += tmp * log(get_delay_density(j, m_I1S, s_I1S));
+    }
+  }
+  
+  // duration m_I2S
+  for (unsigned int j = 0; j < s_ptr->m_I2S_count.size(); ++j) {
+    int tmp = s_ptr->m_I2S_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_I2S, s_I2S));
+    }
+  }
+  
+  // duration m_SD
+  for (unsigned int j = 0; j < s_ptr->m_SD_count.size(); ++j) {
+    int tmp = s_ptr->m_SD_count[j];
+    if (tmp > 0) {
+      ret += tmp * log(get_delay_density(j, m_SD, s_SD));
     }
   }
   
@@ -353,6 +385,9 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
   for (int i = 0; i < s_ptr->n_node; ++i) {
     p_ID_node[i] = theta[pi++];
   }
+  for (int i = 0; i < s_ptr->n_node; ++i) {
+    p_SD_node[i] = theta[pi++];
+  }
   
   
   // ----------------------------------------------------------------
@@ -380,6 +415,13 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
       ret += -p_ID_node[i] -2*log(1 + exp(-p_ID_node[i]));
     } else {
       ret += R::dnorm(p_ID_node[i], p_ID_node[i-1], k, true);
+    }
+  }
+  for (int i = 0; i < s_ptr->n_node; ++i) {
+    if (i == 0) {
+      ret += -p_SD_node[i] -2*log(1 + exp(-p_SD_node[i]));
+    } else {
+      ret += R::dnorm(p_SD_node[i], p_SD_node[i-1], k, true);
     }
   }
   
