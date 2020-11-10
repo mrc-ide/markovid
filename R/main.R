@@ -71,8 +71,7 @@ run_mcmc <- function(data_list,
   skip_param <- (df_params$min == df_params$max)
   
   # read in lookup tables
-  lookup_list <- get_lookup_density()
-  lookup_density <- lookup_list$gamma_density
+  lookup_density <- get_lookup_density()
   
   
   # ---------- define argument lists ----------
@@ -231,7 +230,7 @@ nested_to_long <- function(nl) {
 }
 
 # ------------------------------------------------------------------
-# calculate lookup table first time only
+# calculate lookup table and store in cache
 #' @importFrom stats pgamma
 #' @noRd
 get_lookup_density <- function() {
@@ -244,7 +243,7 @@ get_lookup_density <- function() {
     
     # define vectors over which to create lookup
     mvec <- seq(0, 20, 0.01)
-    svec <- seq(0, 2, 0.01)
+    svec <- 1:10
     kvec <- 0:100
     
     # create matrices from marginal vectors
@@ -252,27 +251,27 @@ get_lookup_density <- function() {
     smat <- output <- matrix(rep(svec, length(kvec)), length(svec))
     
     # save values into list
-    gamma_density <- list()
+    lookup_density <- list()
     for (i in seq_along(mvec)) {
       m <- mvec[i]
       
-      # calculate gamma density and gamma tail
-      gamma_density[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE) -
-                                             pgamma(kmat, shape = 1/smat^2, scale = m*smat^2, lower.tail = TRUE))
+      # calculate erlang density over single day
+      lookup_density[[i]] <- suppressWarnings(pgamma(kmat + 1, shape = smat, scale = m/smat, lower.tail = TRUE) -
+                                              pgamma(kmat, shape = smat, scale = m/smat, lower.tail = TRUE))
       
       # replace NaN with 0
-      gamma_density[[i]][is.na(gamma_density[[i]])] <- 0
+      lookup_density[[i]][is.na(lookup_density[[i]])] <- 0
       
       # add tiny value to buffer against underflow
-      gamma_density[[i]] <- gamma_density[[i]] + 1e-200
+      lookup_density[[i]] <- lookup_density[[i]] + 1e-200
       
       # split into nested lists
-      gamma_density[[i]] <- split(gamma_density[[i]], f = row(gamma_density[[i]]))
+      lookup_density[[i]] <- split(lookup_density[[i]], f = row(lookup_density[[i]]))
       
     }
     
     # store in cache
-    cache$lookup_density <- list(gamma_density = gamma_density)
+    cache$lookup_density <- lookup_density
   }
   
   cache$lookup_density
