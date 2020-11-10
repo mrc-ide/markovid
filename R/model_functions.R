@@ -223,35 +223,35 @@ aggregate_indlevel <- function(df_data,
   
   # time admission to ICU
   w <- which(df_data$icu == TRUE)
-  m_AI_count <- tabulate(df_data$date_icu[w] - df_data$date_admission[w] + 1, nbins = 100)
+  m_AI_count <- tabulate(df_data$date_icu[w] - df_data$date_admission[w] + 1, nbins = t_max)
   
   # time admission to death in general ward
   w <- which((df_data$icu == FALSE) & (df_data$final_outcome == "death"))
-  m_AD_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = 100)
+  m_AD_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = t_max)
   
   # time admission to discharge in general ward
   w <- which((df_data$icu == FALSE) & (df_data$final_outcome == "discharge"))
-  m_AC_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = 100)
+  m_AC_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_admission[w] + 1, nbins = t_max)
   
   # time admission to death in ICU
   w <- which((df_data$icu == TRUE) & (df_data$final_outcome == "death"))
-  m_ID_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_icu[w] + 1, nbins = 100)
+  m_ID_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_icu[w] + 1, nbins = t_max)
   
   # time admission to stepdown (to death) from ICU
   w <- which((df_data$icu == TRUE) & (df_data$stepdown == TRUE) & (df_data$final_outcome == "death"))
-  m_I1S_count <- tabulate(df_data$date_stepdown[w] - df_data$date_icu[w] + 1, nbins = 100)
+  m_I1S_count <- tabulate(df_data$date_stepdown[w] - df_data$date_icu[w] + 1, nbins = t_max)
   
   # time admission to stepdown (to discharge) from ICU
   w <- which((df_data$icu == TRUE) & (df_data$stepdown == TRUE) & (df_data$final_outcome == "discharge"))
-  m_I2S_count <- tabulate(df_data$date_stepdown[w] - df_data$date_icu[w] + 1, nbins = 100)
+  m_I2S_count <- tabulate(df_data$date_stepdown[w] - df_data$date_icu[w] + 1, nbins = t_max)
   
   # time stepdown to death
   w <- which((df_data$icu == TRUE) & (df_data$stepdown == TRUE) & (df_data$final_outcome == "death"))
-  m_SD_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_stepdown[w] + 1, nbins = 100)
+  m_SD_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_stepdown[w] + 1, nbins = t_max)
   
   # time stepdown to discharge
   w <- which((df_data$icu == TRUE) & (df_data$stepdown == TRUE) & (df_data$final_outcome == "discharge"))
-  m_SC_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_stepdown[w] + 1, nbins = 100)
+  m_SC_count <- tabulate(df_data$date_final_outcome[w] - df_data$date_stepdown[w] + 1, nbins = t_max)
   
   
   # return as list

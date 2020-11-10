@@ -239,7 +239,7 @@ get_lookup_density <- function() {
   
   # compute lookup if it does not already exist
   if (is.null(cache$lookup_density)) {
-    message("creating lookup tables. This takes a long time the first time this function is run, but is faster thereafter")
+    message("creating lookup tables (cached after first evaluation)")
     
     # define vectors over which to create lookup
     mvec <- seq(0, 20, 0.01)
