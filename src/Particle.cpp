@@ -231,7 +231,7 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
   m_SD = theta[pi++];
   m_SC = theta[pi++];
   
-  // coefficients of variation of durations
+  // Erlang shape of durations
   s_AI = theta[pi++];
   s_AD = theta[pi++];
   s_AC = theta[pi++];
@@ -276,10 +276,8 @@ double Particle::get_loglike(vector<double> &theta, int theta_i) {
   // ----------------------------------------------------------------
   // individual-level component of likelihood
   
-  // sum log-likelihood over individual-level data
+  // transition probabilities
   for (int i = 0; i < (s_ptr->max_indlevel_age + 1); ++i) {
-    
-    // transition probabilities
     ret += R::dbinom(s_ptr->p_AI_numer[i], s_ptr->p_AI_denom[i], p_AI[i], true);
     ret += R::dbinom(s_ptr->p_AD_numer[i], s_ptr->p_AD_denom[i], p_AD[i], true);
     ret += R::dbinom(s_ptr->p_ID_numer[i], s_ptr->p_ID_denom[i], p_ID[i], true);
@@ -433,9 +431,9 @@ double Particle::get_logprior(vector<double> &theta, int theta_i) {
 double Particle::get_delay_density(int x, double m, double s) {
 #define USE_LOOKUP
 #ifdef USE_LOOKUP
-  double m_index = floor(m * 100);
-  double s_index = floor(s * 100);
-  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 200) || (x < 0)) {
+  int m_index = floor(m * 100);
+  int s_index = floor(s);
+  if ((m_index < 0) || (m_index > 2000) || (s_index < 0) || (s_index > 9) || (x < 0)) {
     print("get_delay_density outside lookup range");
     print(x, m, s, m_index, s_index);
     Rcpp::stop("");
@@ -445,7 +443,7 @@ double Particle::get_delay_density(int x, double m, double s) {
   }
   return s_ptr->gamma_density_lookup[m_index][s_index][x];
 #else
-  double ret = R::pgamma(x + 1, 1.0/(s*s), m*s*s, true, false) - R::pgamma(x, 1.0/(s*s), m*s*s, true, false);
+  double ret = R::pgamma(x + 1, s, m/s, true, false) - R::pgamma(x, s, m/s, true, false);
   if (ret < 1e-200) {
     ret = 1e-200;
   }
