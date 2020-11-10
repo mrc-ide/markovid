@@ -43,7 +43,7 @@ public:
   double m_SD;
   double m_SC;
   
-  // coefficients of variation of durations
+  // Erlang scale of durations
   double s_AI;
   double s_AD;
   double s_AC;

@@ -54,16 +54,15 @@ df_params <- rbind(data.frame(name = sprintf("p_AI_node%s", 1:n_node), min = -5,
                    data.frame(name = "m_I2S", min = 0, max = 20, init = 5),
                    data.frame(name = "m_SD", min = 0, max = 20, init = 5),
                    data.frame(name = "m_SC", min = 0, max = 20, init = 5),
-                   data.frame(name = "s_AI", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_AD", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_AC", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_ID", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_I1S", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_I2S", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_SD", min = 0, max = 1, init = 0.5),
-                   data.frame(name = "s_SC", min = 0, max = 1, init = 0.5)
+                   data.frame(name = "s_AI", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_AD", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_AC", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_ID", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_I1S", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_I2S", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_SD", min = 0, max = 10, init = 5),
+                   data.frame(name = "s_SC", min = 0, max = 10, init = 5)
 )
-
 
 # ------------------------------------------------------------------
 # Run MCMC
